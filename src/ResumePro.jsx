@@ -269,10 +269,7 @@ export default function ResumePro() {
         setSectionLayout(prev=>[...prev,...toEnable.filter(s=>!prev.flat().includes(s)).map(s=>[s])]);
       }
       setActiveTab("form");
-    } catch(err) {
-      console.error("Import error:", err);
-      setImportError("Could not parse resume. Make sure the PDF has selectable text (not a scanned image), or try a .txt file.");
-    }
+    } catch(err) { console.error("Import error:",err); setImportError("Could not parse. Make sure the PDF has selectable text (not a scanned image), or try a .txt file."); }
     setImportLoading(false);
   };
 
@@ -304,22 +301,15 @@ export default function ResumePro() {
       "Summary: "+data.summary,
       "Skills: "+data.skills,
       "Experience:",
-      ...data.experience.map((e,i)=>"["+i+"] "+e.role+" at "+e.company+"
-"+e.bullets.filter(b=>b).map(b=>"  - "+b).join("
-"))
-    ].join("
-");
+      ...data.experience.map((e,i)=>"["+i+"] "+e.role+" at "+e.company+"\n"+e.bullets.filter(b=>b).map(b=>"  - "+b).join("\n"))
+    ].join("\n");
     try {
       const resp = await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:1000,
           system:"You are an expert resume optimizer. Given a resume and a job description (JD), analyze the match and return ONLY valid JSON (no markdown, no backticks) with this exact shape: {matchScore:<0-100>,titleMatch:<string>,keywords:[<strings>],missingSkills:[<strings>],suggestedSkills:<comma-separated string>,newSummary:<2-3 sentences tailored to JD using candidate background>,newBullets:[{expIndex:<number>,bullets:[<strings>]}],gaps:[<strings>],tips:[<strings>]}. Keep bullets honest, grounded in actual experience.",
-          messages:[{role:"user",content:"JOB DESCRIPTION:
-"+jdText+"
-
-RESUME:
-"+resumeSnap}]
+          messages:[{role:"user",content:"JOB DESCRIPTION:\n"+jdText+"\n\nRESUME:\n"+resumeSnap}]
         })
       });
       const d = await resp.json();
@@ -360,7 +350,7 @@ RESUME:
         *{box-sizing:border-box}
         input:focus,textarea:focus,select:focus{border-color:#c9a84c!important;outline:none}
         input::placeholder,textarea::placeholder{color:#6a6a8a}
-        select option{background:#1a1a1a;color:#f0ede6}
+        select option{background:#252535;color:#e8e4dc}
         ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#3a3a5a;border-radius:3px}
         .hov-red:hover{color:#ff6b6b!important;border-color:#ff6b6b!important}
         .hov-gold:hover{color:#c9a84c!important;border-color:#c9a84c55!important}
@@ -412,7 +402,7 @@ RESUME:
 
         {/* ══════ EDIT FORM ══════ */}
         {activeTab==="form"&&(
-          <div style={{width:"100%",maxWidth:440,minWidth:280,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",background:"#252535",flex:"1 1 340px"}}>
+          <div style={{width:"100%",maxWidth:440,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",background:"#252535"}}>
             {/* Section tabs — scrollable */}
             <div style={{display:"flex",borderBottom:"1px solid #3a3a4a",overflowX:"auto",flexShrink:0}}>
               {["personal",...enabledSections].filter((s,i,a)=>a.indexOf(s)===i).map(s=>{
@@ -658,7 +648,7 @@ RESUME:
               ))}
             </div>
 
-            <button onClick={getAISuggestions} disabled={aiLoading} style={{width:"100%",padding:"12px 20px",borderRadius:10,border:"1px solid #c9a84c44",background:aiLoading?"#111":"linear-gradient(135deg,#1a1500,#0d0d0d)",color:aiLoading?"#555":"#c9a84c",cursor:aiLoading?"default":"pointer",fontSize:13,fontWeight:"bold",display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:16}}>
+            <button onClick={getAISuggestions} disabled={aiLoading} style={{width:"100%",padding:"12px 20px",borderRadius:10,border:"1px solid #c9a84c44",background:aiLoading?"#252535":"linear-gradient(135deg,#1a1500,#0d0d0d)",color:aiLoading?"#555":"#c9a84c",cursor:aiLoading?"default":"pointer",fontSize:13,fontWeight:"bold",display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:16}}>
               {aiLoading?(<><span style={{display:"flex",gap:4}}>{[0,1,2].map(n=><span key={n} style={{width:6,height:6,borderRadius:"50%",background:"#c9a84c",display:"inline-block",animation:`pulse 1.2s ${n*.2}s infinite`}}/>)}</span>Generating AI suggestions…</>):"✨ Get AI-Powered Suggestions"}
             </button>
             {aiError&&<div style={{marginBottom:12,fontSize:12,color:"#ef4444",textAlign:"center"}}>{aiError}</div>}
@@ -695,7 +685,7 @@ RESUME:
         {activeTab==="jd"&&(
           <div style={{flex:1,display:"flex",flexWrap:"wrap",overflowY:"auto"}}>
             {/* Left: JD input */}
-            <div style={{flex:"1 1 300px",minWidth:260,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",background:"#252535"}}>
+            <div style={{width:340,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",background:"#252535"}}>
               <div style={{padding:"14px 16px",borderBottom:"1px solid #3a3a4a"}}>
                 <div style={{fontSize:13,color:"#c9a84c",fontWeight:"bold",marginBottom:2}}>🎯 JD Match Optimizer</div>
                 <div style={{fontSize:11,color:"#9090a8",lineHeight:1.6}}>Paste a job description and AI will tailor your resume to match it.</div>
@@ -708,7 +698,7 @@ RESUME:
                   style={{flex:1,background:"#282838",border:"1px solid #3a3a4a",borderRadius:8,padding:"10px 12px",color:"#f0ede6",fontSize:12,fontFamily:"Lato,sans-serif",outline:"none",resize:"none",lineHeight:1.65}}
                 />
                 <button onClick={runJDOptimizer} disabled={jdLoading||!jdText.trim()}
-                  style={{padding:"11px 20px",borderRadius:10,border:"1px solid #c9a84c44",background:jdLoading||!jdText.trim()?"#111":"linear-gradient(135deg,#1a1500,#0d0d0d)",color:jdLoading||!jdText.trim()?"#555":"#c9a84c",cursor:jdLoading||!jdText.trim()?"default":"pointer",fontSize:13,fontWeight:"bold",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all .2s"}}>
+                  style={{padding:"11px 20px",borderRadius:10,border:"1px solid #c9a84c44",background:jdLoading||!jdText.trim()?"#252535":"linear-gradient(135deg,#1a1500,#0d0d0d)",color:jdLoading||!jdText.trim()?"#555":"#c9a84c",cursor:jdLoading||!jdText.trim()?"default":"pointer",fontSize:13,fontWeight:"bold",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all .2s"}}>
                   {jdLoading?(<><span style={{display:"flex",gap:4}}>{[0,1,2].map(n=><span key={n} style={{width:6,height:6,borderRadius:"50%",background:"#c9a84c",display:"inline-block",animation:`pulse 1.2s ${n*.2}s infinite`}}/>)}</span>Analyzing…</>):"🎯 Analyze & Optimize"}
                 </button>
                 {jdError&&<div style={{fontSize:12,color:"#ef4444",textAlign:"center"}}>{jdError}</div>}
@@ -716,7 +706,7 @@ RESUME:
             </div>
 
             {/* Right: Results */}
-            <div style={{flex:"1 1 300px",overflowY:"auto",padding:24,background:"#1e1e2e",minWidth:0}}>
+            <div style={{flex:1,overflowY:"auto",padding:24,background:"#1e1e2e"}}>
               {!jdResult&&!jdLoading&&(
                 <div style={{textAlign:"center",padding:"80px 20px",color:"#7878a0"}}>
                   <div style={{fontSize:48,marginBottom:14}}>🎯</div>
@@ -841,7 +831,7 @@ RESUME:
         {activeTab==="arrange"&&(
           <div style={{flex:1,display:"flex",flexWrap:"wrap",overflowY:"auto",gap:0}}>
             {/* Left: controls */}
-            <div style={{flex:"1 1 280px",minWidth:240,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",overflowY:"auto",background:"#252535"}}>
+            <div style={{width:320,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",overflowY:"auto",background:"#252535"}}>
               <div style={{padding:"14px 16px",borderBottom:"1px solid #3a3a4a"}}>
                 <div style={{fontSize:13,color:"#c9a84c",fontWeight:"bold",marginBottom:2}}>⇅ Section Arranger</div>
                 <div style={{fontSize:11,color:"#9090a8",lineHeight:1.6}}>Move rows up/down. Split a section to its own row, or merge it below as a parallel column.</div>
@@ -900,7 +890,7 @@ RESUME:
         {/* ══════ STYLE ══════ */}
         {activeTab==="style"&&(
           <div style={{flex:1,display:"flex",flexWrap:"wrap",overflowY:"auto"}}>
-            <div style={{flex:"1 1 260px",minWidth:240,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",overflowY:"auto",background:"#252535"}}>
+            <div style={{width:300,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",overflowY:"auto",background:"#252535"}}>
               <div style={{padding:"14px 16px",borderBottom:"1px solid #3a3a4a"}}>
                 <div style={{fontSize:13,color:"#c9a84c",fontWeight:"bold",marginBottom:2}}>🎨 Style Editor</div>
                 <div style={{fontSize:11,color:"#9090a8"}}>Full control — colors, fonts, layout</div>
