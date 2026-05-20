@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.js": "/Resume-pro/static/js/main.c9a15199.js",
+    "main.js": "/Resume-pro/static/js/main.860d7855.js",
     "index.html": "/Resume-pro/index.html",
-    "main.c9a15199.js.map": "/Resume-pro/static/js/main.c9a15199.js.map"
+    "main.860d7855.js.map": "/Resume-pro/static/js/main.860d7855.js.map"
   },
   "entrypoints": [
-    "static/js/main.c9a15199.js"
+    "static/js/main.860d7855.js"
   ]
 }
