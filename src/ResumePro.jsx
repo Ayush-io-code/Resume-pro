@@ -269,7 +269,10 @@ export default function ResumePro() {
         setSectionLayout(prev=>[...prev,...toEnable.filter(s=>!prev.flat().includes(s)).map(s=>[s])]);
       }
       setActiveTab("form");
-    } catch { setImportError("Could not parse. Try a .txt file."); }
+    } catch(err) {
+      console.error("Import error:", err);
+      setImportError("Could not parse resume. Make sure the PDF has selectable text (not a scanned image), or try a .txt file.");
+    }
     setImportLoading(false);
   };
 
@@ -301,15 +304,22 @@ export default function ResumePro() {
       "Summary: "+data.summary,
       "Skills: "+data.skills,
       "Experience:",
-      ...data.experience.map((e,i)=>"["+i+"] "+e.role+" at "+e.company+"\n"+e.bullets.filter(b=>b).map(b=>"  - "+b).join("\n"))
-    ].join("\n");
+      ...data.experience.map((e,i)=>"["+i+"] "+e.role+" at "+e.company+"
+"+e.bullets.filter(b=>b).map(b=>"  - "+b).join("
+"))
+    ].join("
+");
     try {
       const resp = await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:1000,
           system:"You are an expert resume optimizer. Given a resume and a job description (JD), analyze the match and return ONLY valid JSON (no markdown, no backticks) with this exact shape: {matchScore:<0-100>,titleMatch:<string>,keywords:[<strings>],missingSkills:[<strings>],suggestedSkills:<comma-separated string>,newSummary:<2-3 sentences tailored to JD using candidate background>,newBullets:[{expIndex:<number>,bullets:[<strings>]}],gaps:[<strings>],tips:[<strings>]}. Keep bullets honest, grounded in actual experience.",
-          messages:[{role:"user",content:"JOB DESCRIPTION:\n"+jdText+"\n\nRESUME:\n"+resumeSnap}]
+          messages:[{role:"user",content:"JOB DESCRIPTION:
+"+jdText+"
+
+RESUME:
+"+resumeSnap}]
         })
       });
       const d = await resp.json();
@@ -333,8 +343,8 @@ export default function ResumePro() {
   const setStyle     = (k,v) => setCustomStyle(prev=>({...prev,[k]:v}));
   const applyPalette = p => setCustomStyle(prev=>({...prev,header:p.header,accent:p.accent,bg:p.bg,text:p.text,border:p.border,skillBg:p.skillBg}));
 
-  const inp = {width:"100%",background:"#0f0f0f",border:"1px solid #252525",borderRadius:8,padding:"9px 12px",color:"#f0ede6",fontSize:13,fontFamily:"Lato,sans-serif",outline:"none",boxSizing:"border-box",transition:"border-color .2s"};
-  const lbl = {fontSize:10,color:"#666",textTransform:"uppercase",letterSpacing:".1em",marginBottom:5,display:"block"};
+  const inp = {width:"100%",background:"#282838",border:"1px solid #3a3a4a",borderRadius:8,padding:"9px 12px",color:"#f0ede6",fontSize:13,fontFamily:"Lato,sans-serif",outline:"none",boxSizing:"border-box",transition:"border-color .2s"};
+  const lbl = {fontSize:10,color:"#9a9ab0",textTransform:"uppercase",letterSpacing:".1em",marginBottom:5,display:"block"};
   const scoreColor = ats.score>=80?"#22c55e":ats.score>=55?"#f59e0b":"#ef4444";
 
   const allFormSections = [
@@ -344,17 +354,17 @@ export default function ResumePro() {
   ];
 
   return (
-    <div style={{fontFamily:"Lato,sans-serif",minHeight:"100vh",background:"#080808",color:"#f0ede6",display:"flex",flexDirection:"column"}}>
+    <div style={{fontFamily:"Lato,sans-serif",minHeight:"100vh",background:"#1e1e2e",color:"#f0ede6",display:"flex",flexDirection:"column"}}>
       <style>{`
         ${GFONTS}
         *{box-sizing:border-box}
         input:focus,textarea:focus,select:focus{border-color:#c9a84c!important;outline:none}
-        input::placeholder,textarea::placeholder{color:#333}
+        input::placeholder,textarea::placeholder{color:#6a6a8a}
         select option{background:#1a1a1a;color:#f0ede6}
-        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#222;border-radius:3px}
+        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#3a3a5a;border-radius:3px}
         .hov-red:hover{color:#ff6b6b!important;border-color:#ff6b6b!important}
         .hov-gold:hover{color:#c9a84c!important;border-color:#c9a84c55!important}
-        .hov-dim:hover{background:#1a1a1a!important}
+        .hov-dim:hover{background:#303048!important}
         .palette-btn:hover{border-color:#c9a84c!important;background:#c9a84c11!important}
         .apply-btn:hover{background:#c9a84c!important;color:#000!important}
         .layout-btn:hover{border-color:#c9a84c!important;color:#c9a84c!important}
@@ -363,20 +373,20 @@ export default function ResumePro() {
         @keyframes pulse{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
         @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         .fade-in{animation:fadeIn .25s ease forwards}
-        @media print{body *{visibility:hidden}#resume-print,#resume-print *{visibility:visible}#resume-print{position:fixed;top:0;left:0;width:100%;z-index:9999}}
+        @media(max-width:600px){header{padding:8px 12px!important}.tab-btn{padding:8px 10px!important;font-size:11px!important}}@media print{body *{visibility:hidden}#resume-print,#resume-print *{visibility:visible}#resume-print{position:fixed;top:0;left:0;width:100%;z-index:9999}}
       `}</style>
 
       {/* ── Header ── */}
-      <header style={{background:"#0d0d0d",borderBottom:"1px solid #1a1a1a",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+      <header style={{background:"#1a1a2a",borderBottom:"1px solid #3a3a4a",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:34,height:34,background:"linear-gradient(135deg,#c9a84c,#e8c97a)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17}}>✦</div>
           <div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:"#e8c97a",fontWeight:700}}>ResuméPro</div>
-            <div style={{fontSize:10,color:"#444",letterSpacing:".1em",textTransform:"uppercase"}}>Import · Style · ATS · JD Match</div>
+            <div style={{fontSize:10,color:"#8888a0",letterSpacing:".1em",textTransform:"uppercase"}}>Import · Style · ATS · JD Match</div>
           </div>
         </div>
         <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-          <button onClick={()=>fileRef.current.click()} disabled={importLoading} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #333",background:"transparent",color:importLoading?"#555":"#aaa",cursor:"pointer",fontSize:12}}>
+          <button onClick={()=>fileRef.current.click()} disabled={importLoading} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #4a4a5a",background:"transparent",color:importLoading?"#555":"#aaa",cursor:"pointer",fontSize:12}}>
             {importLoading?"⏳ Importing…":"📂 Import Resume"}
           </button>
           <input ref={fileRef} type="file" accept=".pdf,.txt" style={{display:"none"}} onChange={e=>handleImport(e.target.files[0])} />
@@ -386,7 +396,7 @@ export default function ResumePro() {
       </header>
 
       {/* ── Tab bar ── */}
-      <div style={{background:"#0d0d0d",borderBottom:"1px solid #1a1a1a",display:"flex",padding:"0 12px",overflowX:"auto"}}>
+      <div style={{background:"#1a1a2a",borderBottom:"1px solid #3a3a4a",display:"flex",padding:"0 12px",overflowX:"auto"}}>
         {[{id:"form",label:"✏️ Edit"},{id:"preview",label:"👁 Preview"},{id:"ats",label:`📊 ATS ${ats.score}`},{id:"jd",label:"🎯 JD Match"},{id:"arrange",label:"⇅ Arrange"},{id:"style",label:"🎨 Style"}].map(t=>(
           <button key={t.id} onClick={()=>setActiveTab(t.id)} className="tab-btn" style={{padding:"10px 16px",border:"none",background:"transparent",color:activeTab===t.id?"#c9a84c":"#555",fontSize:13,cursor:"pointer",whiteSpace:"nowrap",borderBottom:activeTab===t.id?"2px solid #c9a84c":"2px solid transparent",fontFamily:"Lato,sans-serif",transition:"all .2s"}}>{t.label}</button>
         ))}
@@ -398,13 +408,13 @@ export default function ResumePro() {
       </div>
 
       {/* ── Body ── */}
-      <div style={{flex:1,display:"flex",overflow:"hidden",height:"calc(100vh - 107px)"}}>
+      <div style={{flex:1,display:"flex",flexWrap:"wrap",overflowY:"auto",minHeight:"calc(100vh - 107px)"}}>
 
         {/* ══════ EDIT FORM ══════ */}
         {activeTab==="form"&&(
-          <div style={{width:"100%",maxWidth:440,display:"flex",flexDirection:"column",borderRight:"1px solid #1a1a1a",background:"#0a0a0a"}}>
+          <div style={{width:"100%",maxWidth:440,minWidth:280,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",background:"#252535",flex:"1 1 340px"}}>
             {/* Section tabs — scrollable */}
-            <div style={{display:"flex",borderBottom:"1px solid #1a1a1a",overflowX:"auto",flexShrink:0}}>
+            <div style={{display:"flex",borderBottom:"1px solid #3a3a4a",overflowX:"auto",flexShrink:0}}>
               {["personal",...enabledSections].filter((s,i,a)=>a.indexOf(s)===i).map(s=>{
                 const isCustom=s.startsWith("custom_");
                 const cid=isCustom?parseInt(s.replace("custom_","")):null;
@@ -428,7 +438,7 @@ export default function ResumePro() {
                   ))}
                   {/* Add section buttons */}
                   <div style={{marginTop:20}}>
-                    <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>Add / Remove Sections</div>
+                    <div style={{fontSize:10,color:"#9090a8",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>Add / Remove Sections</div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                       {Object.entries(SECTION_META).filter(([k])=>k!=="summary"&&k!=="experience"&&k!=="education"&&k!=="skills").map(([k,v])=>{
                         const on=enabledSections.includes(k);
@@ -438,7 +448,7 @@ export default function ResumePro() {
                           </button>
                         );
                       })}
-                      <button onClick={addCustom} style={{padding:"4px 12px",borderRadius:16,border:"1px dashed #333",background:"transparent",color:"#555",fontSize:11,cursor:"pointer"}}>＋ Custom</button>
+                      <button onClick={addCustom} style={{padding:"4px 12px",borderRadius:16,border:"1px dashed #333",background:"transparent",color:"#9090a8",fontSize:11,cursor:"pointer"}}>＋ Custom</button>
                     </div>
                   </div>
                 </div>
@@ -447,9 +457,9 @@ export default function ResumePro() {
               {/* ── Summary ── */}
               {activeSection==="summary"&&(
                 <div className="fade-in"><FH>Professional Summary</FH>
-                  <p style={{fontSize:12,color:"#555",marginBottom:12,lineHeight:1.6}}>2-3 sentences. Use action words and quantify impact.</p>
+                  <p style={{fontSize:12,color:"#9090a8",marginBottom:12,lineHeight:1.6}}>2-3 sentences. Use action words and quantify impact.</p>
                   <textarea rows={7} placeholder="Results-driven engineer with 6+ years building scalable systems..." value={data.summary} onChange={e=>set("summary",e.target.value)} style={{...inp,resize:"vertical",lineHeight:1.65}}/>
-                  <div style={{marginTop:6,fontSize:11,color:"#555"}}>{data.summary.trim().split(/\s+/).filter(Boolean).length} words (aim for 30-80)</div>
+                  <div style={{marginTop:6,fontSize:11,color:"#9090a8"}}>{data.summary.trim().split(/\s+/).filter(Boolean).length} words (aim for 30-80)</div>
                 </div>
               )}
 
@@ -457,10 +467,10 @@ export default function ResumePro() {
               {activeSection==="experience"&&(
                 <div className="fade-in"><FH>Work Experience</FH>
                   {data.experience.map((exp,idx)=>(
-                    <div key={exp.id} style={{background:"#111",borderRadius:10,padding:14,marginBottom:14,border:"1px solid #1e1e1e"}}>
+                    <div key={exp.id} style={{background:"#2a2a3a",borderRadius:10,padding:14,marginBottom:14,border:"1px solid #3a3a4a"}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
                         <span style={{fontSize:11,color:"#c9a84c",fontWeight:"bold"}}>Position {idx+1}</span>
-                        {data.experience.length>1&&<button className="hov-red" onClick={()=>removeExp(exp.id)} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"1px solid #333",background:"transparent",color:"#555",cursor:"pointer"}}>✕</button>}
+                        {data.experience.length>1&&<button className="hov-red" onClick={()=>removeExp(exp.id)} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"1px solid #4a4a5a",background:"transparent",color:"#9090a8",cursor:"pointer"}}>✕</button>}
                       </div>
                       {[["role","Job Title"],["company","Company"],["period","Jan 2022 – Present"]].map(([f,p])=>(
                         <div key={f} style={{marginBottom:10}}><label style={lbl}>{f}</label><input placeholder={p} value={exp[f]} onChange={e=>setExp(exp.id,f,e.target.value)} style={inp}/></div>
@@ -469,13 +479,13 @@ export default function ResumePro() {
                       {exp.bullets.map((b,i)=>(
                         <div key={i} style={{display:"flex",gap:6,marginBottom:6}}>
                           <input placeholder={`Achievement ${i+1}…`} value={b} onChange={e=>setBullet(exp.id,i,e.target.value)} style={{...inp,flex:1}}/>
-                          {exp.bullets.length>1&&<button className="hov-red" onClick={()=>removeBullet(exp.id,i)} style={{width:28,borderRadius:6,border:"1px solid #252525",background:"transparent",color:"#444",cursor:"pointer"}}>×</button>}
+                          {exp.bullets.length>1&&<button className="hov-red" onClick={()=>removeBullet(exp.id,i)} style={{width:28,borderRadius:6,border:"1px solid #3a3a4a",background:"transparent",color:"#8888a0",cursor:"pointer"}}>×</button>}
                         </div>
                       ))}
-                      <button className="hov-gold" onClick={()=>addBullet(exp.id)} style={{fontSize:11,padding:"3px 10px",borderRadius:6,border:"1px dashed #252525",background:"transparent",color:"#555",cursor:"pointer",marginTop:2}}>+ bullet</button>
+                      <button className="hov-gold" onClick={()=>addBullet(exp.id)} style={{fontSize:11,padding:"3px 10px",borderRadius:6,border:"1px dashed #252525",background:"transparent",color:"#9090a8",cursor:"pointer",marginTop:2}}>+ bullet</button>
                     </div>
                   ))}
-                  <button className="hov-gold" onClick={addExp} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #2a2a2a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Position</button>
+                  <button className="hov-gold" onClick={addExp} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #4a4a5a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Position</button>
                 </div>
               )}
 
@@ -483,26 +493,26 @@ export default function ResumePro() {
               {activeSection==="education"&&(
                 <div className="fade-in"><FH>Education</FH>
                   {data.education.map((edu,idx)=>(
-                    <div key={edu.id} style={{background:"#111",borderRadius:10,padding:14,marginBottom:14,border:"1px solid #1e1e1e"}}>
+                    <div key={edu.id} style={{background:"#2a2a3a",borderRadius:10,padding:14,marginBottom:14,border:"1px solid #3a3a4a"}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
                         <span style={{fontSize:11,color:"#c9a84c",fontWeight:"bold"}}>Degree {idx+1}</span>
-                        {data.education.length>1&&<button className="hov-red" onClick={()=>removeEdu(edu.id)} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"1px solid #333",background:"transparent",color:"#555",cursor:"pointer"}}>✕</button>}
+                        {data.education.length>1&&<button className="hov-red" onClick={()=>removeEdu(edu.id)} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"1px solid #4a4a5a",background:"transparent",color:"#9090a8",cursor:"pointer"}}>✕</button>}
                       </div>
                       {[["degree","BSc Computer Science"],["institution","University Name"],["year","2022"]].map(([f,p])=>(
                         <div key={f} style={{marginBottom:10}}><label style={lbl}>{f}</label><input placeholder={p} value={edu[f]} onChange={e=>setEdu(edu.id,f,e.target.value)} style={inp}/></div>
                       ))}
                     </div>
                   ))}
-                  <button className="hov-gold" onClick={addEdu} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #2a2a2a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Education</button>
+                  <button className="hov-gold" onClick={addEdu} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #4a4a5a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Education</button>
                 </div>
               )}
 
               {/* ── Skills ── */}
               {activeSection==="skills"&&(
                 <div className="fade-in"><FH>Skills</FH>
-                  <p style={{fontSize:12,color:"#555",marginBottom:12,lineHeight:1.6}}>Comma-separated. Mix technical and soft skills.</p>
+                  <p style={{fontSize:12,color:"#9090a8",marginBottom:12,lineHeight:1.6}}>Comma-separated. Mix technical and soft skills.</p>
                   <textarea rows={5} placeholder="React, Node.js, Python, SQL, Leadership, Agile…" value={data.skills} onChange={e=>set("skills",e.target.value)} style={{...inp,resize:"vertical",lineHeight:1.7}}/>
-                  {skills.length>0&&<div style={{marginTop:12,display:"flex",flexWrap:"wrap",gap:6}}>{skills.map((s,i)=><span key={i} style={{fontSize:11,padding:"3px 10px",background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:20,color:"#c9a84c"}}>{s}</span>)}</div>}
+                  {skills.length>0&&<div style={{marginTop:12,display:"flex",flexWrap:"wrap",gap:6}}>{skills.map((s,i)=><span key={i} style={{fontSize:11,padding:"3px 10px",background:"#303045",border:"1px solid #4a4a5a",borderRadius:20,color:"#c9a84c"}}>{s}</span>)}</div>}
                 </div>
               )}
 
@@ -510,31 +520,31 @@ export default function ResumePro() {
               {activeSection==="certifications"&&(
                 <div className="fade-in"><FH>Certifications</FH>
                   {data.certifications.map((c,i)=>(
-                    <div key={c.id} style={{background:"#111",borderRadius:10,padding:14,marginBottom:12,border:"1px solid #1e1e1e"}}>
+                    <div key={c.id} style={{background:"#2a2a3a",borderRadius:10,padding:14,marginBottom:12,border:"1px solid #3a3a4a"}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
                         <span style={{fontSize:11,color:"#c9a84c",fontWeight:"bold"}}>Cert {i+1}</span>
-                        <button className="hov-red" onClick={()=>removeCert(c.id)} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"1px solid #333",background:"transparent",color:"#555",cursor:"pointer"}}>✕</button>
+                        <button className="hov-red" onClick={()=>removeCert(c.id)} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"1px solid #4a4a5a",background:"transparent",color:"#9090a8",cursor:"pointer"}}>✕</button>
                       </div>
                       {[["name","Certification Name"],["issuer","Issued By (e.g. AWS, Google)"],["year","Year"]].map(([f,p])=>(
                         <div key={f} style={{marginBottom:9}}><label style={lbl}>{f}</label><input placeholder={p} value={c[f]} onChange={e=>setCert(c.id,f,e.target.value)} style={inp}/></div>
                       ))}
                     </div>
                   ))}
-                  <button className="hov-gold" onClick={addCert} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #2a2a2a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Certification</button>
+                  <button className="hov-gold" onClick={addCert} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #4a4a5a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Certification</button>
                 </div>
               )}
 
               {/* ── Achievements ── */}
               {activeSection==="achievements"&&(
                 <div className="fade-in"><FH>Achievements</FH>
-                  <p style={{fontSize:12,color:"#555",marginBottom:12,lineHeight:1.6}}>Awards, recognitions, notable accomplishments.</p>
+                  <p style={{fontSize:12,color:"#9090a8",marginBottom:12,lineHeight:1.6}}>Awards, recognitions, notable accomplishments.</p>
                   {data.achievements.map((a,i)=>(
                     <div key={a.id} style={{display:"flex",gap:6,marginBottom:8}}>
                       <input placeholder={`Achievement ${i+1}…`} value={a.text} onChange={e=>setAch(a.id,e.target.value)} style={{...inp,flex:1}}/>
-                      <button className="hov-red" onClick={()=>removeAch(a.id)} style={{width:28,borderRadius:6,border:"1px solid #252525",background:"transparent",color:"#444",cursor:"pointer"}}>×</button>
+                      <button className="hov-red" onClick={()=>removeAch(a.id)} style={{width:28,borderRadius:6,border:"1px solid #3a3a4a",background:"transparent",color:"#8888a0",cursor:"pointer"}}>×</button>
                     </div>
                   ))}
-                  <button className="hov-gold" onClick={addAch} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #2a2a2a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Achievement</button>
+                  <button className="hov-gold" onClick={addAch} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #4a4a5a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Achievement</button>
                 </div>
               )}
 
@@ -542,17 +552,17 @@ export default function ResumePro() {
               {activeSection==="projects"&&(
                 <div className="fade-in"><FH>Projects</FH>
                   {data.projects.map((p,i)=>(
-                    <div key={p.id} style={{background:"#111",borderRadius:10,padding:14,marginBottom:12,border:"1px solid #1e1e1e"}}>
+                    <div key={p.id} style={{background:"#2a2a3a",borderRadius:10,padding:14,marginBottom:12,border:"1px solid #3a3a4a"}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
                         <span style={{fontSize:11,color:"#c9a84c",fontWeight:"bold"}}>Project {i+1}</span>
-                        <button className="hov-red" onClick={()=>removeProj(p.id)} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"1px solid #333",background:"transparent",color:"#555",cursor:"pointer"}}>✕</button>
+                        <button className="hov-red" onClick={()=>removeProj(p.id)} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"1px solid #4a4a5a",background:"transparent",color:"#9090a8",cursor:"pointer"}}>✕</button>
                       </div>
                       {[["name","Project Name"],["link","GitHub / Live URL"],["desc","Short description…"]].map(([f,pl])=>(
                         <div key={f} style={{marginBottom:9}}><label style={lbl}>{f}</label><input placeholder={pl} value={p[f]} onChange={e=>setProj(p.id,f,e.target.value)} style={inp}/></div>
                       ))}
                     </div>
                   ))}
-                  <button className="hov-gold" onClick={addProj} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #2a2a2a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Project</button>
+                  <button className="hov-gold" onClick={addProj} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #4a4a5a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Project</button>
                 </div>
               )}
 
@@ -563,10 +573,10 @@ export default function ResumePro() {
                     <div key={l.id} style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
                       <input placeholder="Language" value={l.language} onChange={e=>setLang(l.id,"language",e.target.value)} style={{...inp,flex:2}}/>
                       <input placeholder="Level (Fluent)" value={l.level} onChange={e=>setLang(l.id,"level",e.target.value)} style={{...inp,flex:1}}/>
-                      <button className="hov-red" onClick={()=>removeLang(l.id)} style={{width:28,borderRadius:6,border:"1px solid #252525",background:"transparent",color:"#444",cursor:"pointer",flexShrink:0}}>×</button>
+                      <button className="hov-red" onClick={()=>removeLang(l.id)} style={{width:28,borderRadius:6,border:"1px solid #3a3a4a",background:"transparent",color:"#8888a0",cursor:"pointer",flexShrink:0}}>×</button>
                     </div>
                   ))}
-                  <button className="hov-gold" onClick={addLang} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #2a2a2a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Language</button>
+                  <button className="hov-gold" onClick={addLang} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #4a4a5a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Language</button>
                 </div>
               )}
 
@@ -574,17 +584,17 @@ export default function ResumePro() {
               {activeSection==="volunteer"&&(
                 <div className="fade-in"><FH>Volunteer Work</FH>
                   {data.volunteer.map((v,i)=>(
-                    <div key={v.id} style={{background:"#111",borderRadius:10,padding:14,marginBottom:12,border:"1px solid #1e1e1e"}}>
+                    <div key={v.id} style={{background:"#2a2a3a",borderRadius:10,padding:14,marginBottom:12,border:"1px solid #3a3a4a"}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
                         <span style={{fontSize:11,color:"#c9a84c",fontWeight:"bold"}}>Role {i+1}</span>
-                        <button className="hov-red" onClick={()=>removeVol(v.id)} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"1px solid #333",background:"transparent",color:"#555",cursor:"pointer"}}>✕</button>
+                        <button className="hov-red" onClick={()=>removeVol(v.id)} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"1px solid #4a4a5a",background:"transparent",color:"#9090a8",cursor:"pointer"}}>✕</button>
                       </div>
                       {[["role","Role / Position"],["org","Organization"],["period","Year / Period"],["desc","Description"]].map(([f,p])=>(
                         <div key={f} style={{marginBottom:9}}><label style={lbl}>{f}</label><input placeholder={p} value={v[f]} onChange={e=>setVol(v.id,f,e.target.value)} style={inp}/></div>
                       ))}
                     </div>
                   ))}
-                  <button className="hov-gold" onClick={addVol} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #2a2a2a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Role</button>
+                  <button className="hov-gold" onClick={addVol} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #4a4a5a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Role</button>
                 </div>
               )}
 
@@ -597,7 +607,7 @@ export default function ResumePro() {
                   <div className="fade-in">
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
                       <FH style={{margin:0,padding:0,border:"none"}}>Custom Section</FH>
-                      <button className="hov-red" onClick={()=>removeCustomSec(cid)} style={{fontSize:11,padding:"3px 10px",borderRadius:6,border:"1px solid #333",background:"transparent",color:"#555",cursor:"pointer"}}>Remove</button>
+                      <button className="hov-red" onClick={()=>removeCustomSec(cid)} style={{fontSize:11,padding:"3px 10px",borderRadius:6,border:"1px solid #4a4a5a",background:"transparent",color:"#9090a8",cursor:"pointer"}}>Remove</button>
                     </div>
                     <div style={{marginBottom:13}}><label style={lbl}>Section Title</label><input value={sec.title} onChange={e=>setCustomSec(cid,"title",e.target.value)} style={inp}/></div>
                     <label style={lbl}>Items</label>
@@ -606,7 +616,7 @@ export default function ResumePro() {
                         <input placeholder={`Item ${i+1}…`} value={item} onChange={e=>setCustomItem(cid,i,e.target.value)} style={{...inp,flex:1}}/>
                       </div>
                     ))}
-                    <button className="hov-gold" onClick={()=>addCustomItem(cid)} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #2a2a2a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Item</button>
+                    <button className="hov-gold" onClick={()=>addCustomItem(cid)} style={{width:"100%",padding:9,borderRadius:8,border:"1px dashed #4a4a5a",background:"transparent",color:"#c9a84c88",cursor:"pointer",fontSize:13}}>+ Add Item</button>
                   </div>
                 );
               })()}
@@ -616,7 +626,7 @@ export default function ResumePro() {
 
         {/* ══════ PREVIEW ══════ */}
         {activeTab==="preview"&&(
-          <div style={{flex:1,overflowY:"auto",background:"#1a1a1a",padding:"28px 16px"}}>
+          <div style={{flex:1,overflowY:"auto",background:"#303045",padding:"28px 16px"}}>
             <ResumeDoc data={data} T={T} skills={skills} layout={sectionLayout} enabledSections={enabledSections}/>
           </div>
         )}
@@ -631,17 +641,17 @@ export default function ResumePro() {
                 <circle cx={65} cy={65} r={54} fill="none" stroke={scoreColor} strokeWidth={13} strokeDasharray={`${2*Math.PI*54}`} strokeDashoffset={`${2*Math.PI*54*(1-ats.score/100)}`} strokeLinecap="round" style={{transition:"stroke-dashoffset .8s ease"}}/>
               </svg>
               <div style={{marginTop:-90,fontSize:34,fontWeight:"bold",color:scoreColor,fontFamily:"'Playfair Display',serif"}}>{ats.score}</div>
-              <div style={{fontSize:11,color:"#555",marginTop:2}}>out of 100</div>
+              <div style={{fontSize:11,color:"#9090a8",marginTop:2}}>out of 100</div>
               <div style={{marginTop:74,fontSize:13,color:scoreColor,fontWeight:"bold"}}>{ats.score>=80?"🟢 Excellent — ATS Ready":ats.score>=55?"🟡 Good — Needs Minor Fixes":"🔴 Low — Needs Work"}</div>
             </div>
 
-            <div style={{background:"#0f0f0f",borderRadius:12,border:"1px solid #1e1e1e",overflow:"hidden",marginBottom:20}}>
+            <div style={{background:"#282838",borderRadius:12,border:"1px solid #3a3a4a",overflow:"hidden",marginBottom:20}}>
               {ats.checks.map((c,i)=>(
                 <div key={i} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"11px 16px",borderBottom:i<ats.checks.length-1?"1px solid #1a1a1a":"none"}}>
                   <span style={{fontSize:14,marginTop:1}}>{c.pass?"✅":"❌"}</span>
                   <div style={{flex:1}}>
                     <div style={{fontSize:13,color:c.pass?"#aaa":"#777"}}>{c.label}</div>
-                    {!c.pass&&<div style={{fontSize:11,color:"#555",marginTop:3,lineHeight:1.5}}>→ {c.fix}</div>}
+                    {!c.pass&&<div style={{fontSize:11,color:"#9090a8",marginTop:3,lineHeight:1.5}}>→ {c.fix}</div>}
                   </div>
                   <span style={{fontSize:11,color:c.pass?"#22c55e":"#333",whiteSpace:"nowrap"}}>+{c.weight}</span>
                 </div>
@@ -657,15 +667,15 @@ export default function ResumePro() {
               <div>
                 <div style={{fontSize:12,color:"#c9a84c",fontWeight:"bold",textTransform:"uppercase",letterSpacing:".1em",marginBottom:12}}>✨ AI Recommendations</div>
                 {aiSuggestions.map((s,i)=>(
-                  <div key={i} className="fade-in" style={{background:"#0f0f0f",border:"1px solid #252525",borderRadius:10,padding:14,marginBottom:10,animationDelay:`${i*0.07}s`}}>
+                  <div key={i} className="fade-in" style={{background:"#282838",border:"1px solid #3a3a4a",borderRadius:10,padding:14,marginBottom:10,animationDelay:`${i*0.07}s`}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                       <span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:"#1e1e1e",color:"#888",textTransform:"uppercase",letterSpacing:".08em"}}>{s.section}</span>
                       {(s.section==="Summary"||s.section==="Skills")&&(
                         <button onClick={()=>applySuggestion(s)} className="apply-btn" style={{fontSize:11,padding:"3px 10px",borderRadius:6,border:"1px solid #c9a84c44",background:"transparent",color:"#c9a84c",cursor:"pointer",transition:"all .2s"}}>Apply →</button>
                       )}
                     </div>
-                    <div style={{fontSize:12,color:"#666",marginBottom:6}}>{s.issue}</div>
-                    <div style={{fontSize:13,color:"#ccc",lineHeight:1.6,background:"#1a1a1a",borderRadius:6,padding:"8px 10px",borderLeft:"2px solid #c9a84c"}}>{s.suggestion}</div>
+                    <div style={{fontSize:12,color:"#9a9ab0",marginBottom:6}}>{s.issue}</div>
+                    <div style={{fontSize:13,color:"#ccc",lineHeight:1.6,background:"#303045",borderRadius:6,padding:"8px 10px",borderLeft:"2px solid #c9a84c"}}>{s.suggestion}</div>
                   </div>
                 ))}
               </div>
@@ -683,19 +693,19 @@ export default function ResumePro() {
 
         {/* ══════ JD MATCH ══════ */}
         {activeTab==="jd"&&(
-          <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+          <div style={{flex:1,display:"flex",flexWrap:"wrap",overflowY:"auto"}}>
             {/* Left: JD input */}
-            <div style={{width:340,display:"flex",flexDirection:"column",borderRight:"1px solid #1a1a1a",background:"#0a0a0a"}}>
-              <div style={{padding:"14px 16px",borderBottom:"1px solid #1a1a1a"}}>
+            <div style={{flex:"1 1 300px",minWidth:260,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",background:"#252535"}}>
+              <div style={{padding:"14px 16px",borderBottom:"1px solid #3a3a4a"}}>
                 <div style={{fontSize:13,color:"#c9a84c",fontWeight:"bold",marginBottom:2}}>🎯 JD Match Optimizer</div>
-                <div style={{fontSize:11,color:"#555",lineHeight:1.6}}>Paste a job description and AI will tailor your resume to match it.</div>
+                <div style={{fontSize:11,color:"#9090a8",lineHeight:1.6}}>Paste a job description and AI will tailor your resume to match it.</div>
               </div>
               <div style={{flex:1,display:"flex",flexDirection:"column",padding:14,gap:10}}>
                 <textarea
                   value={jdText}
                   onChange={e=>setJdText(e.target.value)}
                   placeholder={"Paste the full job description here...\n\nExample:\nWe are looking for a Senior React Developer with experience in Node.js, AWS, and agile teams..."}
-                  style={{flex:1,background:"#0f0f0f",border:"1px solid #252525",borderRadius:8,padding:"10px 12px",color:"#f0ede6",fontSize:12,fontFamily:"Lato,sans-serif",outline:"none",resize:"none",lineHeight:1.65}}
+                  style={{flex:1,background:"#282838",border:"1px solid #3a3a4a",borderRadius:8,padding:"10px 12px",color:"#f0ede6",fontSize:12,fontFamily:"Lato,sans-serif",outline:"none",resize:"none",lineHeight:1.65}}
                 />
                 <button onClick={runJDOptimizer} disabled={jdLoading||!jdText.trim()}
                   style={{padding:"11px 20px",borderRadius:10,border:"1px solid #c9a84c44",background:jdLoading||!jdText.trim()?"#111":"linear-gradient(135deg,#1a1500,#0d0d0d)",color:jdLoading||!jdText.trim()?"#555":"#c9a84c",cursor:jdLoading||!jdText.trim()?"default":"pointer",fontSize:13,fontWeight:"bold",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all .2s"}}>
@@ -706,32 +716,32 @@ export default function ResumePro() {
             </div>
 
             {/* Right: Results */}
-            <div style={{flex:1,overflowY:"auto",padding:24,background:"#080808"}}>
+            <div style={{flex:"1 1 300px",overflowY:"auto",padding:24,background:"#1e1e2e",minWidth:0}}>
               {!jdResult&&!jdLoading&&(
-                <div style={{textAlign:"center",padding:"80px 20px",color:"#333"}}>
+                <div style={{textAlign:"center",padding:"80px 20px",color:"#7878a0"}}>
                   <div style={{fontSize:48,marginBottom:14}}>🎯</div>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:"#444",marginBottom:8}}>Paste a Job Description</div>
-                  <div style={{fontSize:13,color:"#333",lineHeight:1.7,maxWidth:340,margin:"0 auto"}}>The AI will analyze your resume against the JD and generate tailored suggestions you can apply with one click.</div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:"#8888a0",marginBottom:8}}>Paste a Job Description</div>
+                  <div style={{fontSize:13,color:"#7878a0",lineHeight:1.7,maxWidth:340,margin:"0 auto"}}>The AI will analyze your resume against the JD and generate tailored suggestions you can apply with one click.</div>
                 </div>
               )}
               {jdLoading&&(
                 <div style={{textAlign:"center",padding:"80px 20px"}}>
                   <div style={{fontSize:40,marginBottom:16}}>🔍</div>
                   <div style={{fontSize:14,color:"#c9a84c",marginBottom:8}}>Analyzing your resume against the JD…</div>
-                  <div style={{fontSize:12,color:"#444"}}>Comparing keywords, skills, and experience</div>
+                  <div style={{fontSize:12,color:"#8888a0"}}>Comparing keywords, skills, and experience</div>
                 </div>
               )}
               {jdResult&&(
                 <div className="fade-in">
                   {/* Match Score */}
                   <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
-                    <div style={{flex:1,minWidth:140,background:"#0f0f0f",border:"1px solid #1e1e1e",borderRadius:12,padding:"16px 20px",textAlign:"center"}}>
-                      <div style={{fontSize:36,fontWeight:"bold",fontFamily:"'Playfair Display',serif",color:jdResult.matchScore>=70?"#22c55e":jdResult.matchScore>=45?"#f59e0b":"#ef4444"}}>{jdResult.matchScore}<span style={{fontSize:18,color:"#555"}}>/100</span></div>
-                      <div style={{fontSize:11,color:"#555",marginTop:4,textTransform:"uppercase",letterSpacing:".1em"}}>Match Score</div>
+                    <div style={{flex:1,minWidth:140,background:"#282838",border:"1px solid #3a3a4a",borderRadius:12,padding:"16px 20px",textAlign:"center"}}>
+                      <div style={{fontSize:36,fontWeight:"bold",fontFamily:"'Playfair Display',serif",color:jdResult.matchScore>=70?"#22c55e":jdResult.matchScore>=45?"#f59e0b":"#ef4444"}}>{jdResult.matchScore}<span style={{fontSize:18,color:"#9090a8"}}>/100</span></div>
+                      <div style={{fontSize:11,color:"#9090a8",marginTop:4,textTransform:"uppercase",letterSpacing:".1em"}}>Match Score</div>
                     </div>
                     {jdResult.titleMatch&&(
-                      <div style={{flex:2,minWidth:180,background:"#0f0f0f",border:"1px solid #1e1e1e",borderRadius:12,padding:"16px 20px"}}>
-                        <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}>Suggested Title</div>
+                      <div style={{flex:2,minWidth:180,background:"#282838",border:"1px solid #3a3a4a",borderRadius:12,padding:"16px 20px"}}>
+                        <div style={{fontSize:10,color:"#9090a8",textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}>Suggested Title</div>
                         <div style={{fontSize:15,color:"#c9a84c",fontWeight:"bold"}}>{jdResult.titleMatch}</div>
                         <button onClick={()=>{set("title",jdResult.titleMatch);setJdApplied(p=>({...p,title:true}));}} style={{marginTop:8,fontSize:11,padding:"3px 10px",borderRadius:6,border:`1px solid ${jdApplied.title?"#22c55e":"#c9a84c44"}`,background:"transparent",color:jdApplied.title?"#22c55e":"#c9a84c",cursor:"pointer"}}>{jdApplied.title?"✓ Applied":"Apply →"}</button>
                       </div>
@@ -740,7 +750,7 @@ export default function ResumePro() {
 
                   {/* Keywords */}
                   {jdResult.keywords?.length>0&&(
-                    <div style={{background:"#0f0f0f",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+                    <div style={{background:"#282838",border:"1px solid #3a3a4a",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
                       <div style={{fontSize:11,color:"#c9a84c",fontWeight:"bold",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>🔑 Key JD Keywords</div>
                       <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                         {jdResult.keywords.map((k,i)=>{
@@ -748,7 +758,7 @@ export default function ResumePro() {
                           return <span key={i} style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:inResume?"#0a2a0a":"#2a0a0a",border:`1px solid ${inResume?"#1a4a1a":"#4a1a1a"}`,color:inResume?"#22c55e":"#ef4444"}}>{inResume?"✓":""} {k}</span>;
                         })}
                       </div>
-                      <div style={{marginTop:8,fontSize:11,color:"#444"}}>🟢 Already in resume &nbsp;|&nbsp; 🔴 Missing from resume</div>
+                      <div style={{marginTop:8,fontSize:11,color:"#8888a0"}}>🟢 Already in resume &nbsp;|&nbsp; 🔴 Missing from resume</div>
                     </div>
                   )}
 
@@ -759,29 +769,29 @@ export default function ResumePro() {
                       <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
                         {jdResult.missingSkills.map((s,i)=><span key={i} style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:"#2a1800",border:"1px solid #5a3800",color:"#f59e0b"}}>{s}</span>)}
                       </div>
-                      <div style={{fontSize:11,color:"#555"}}>These are required by the JD but not found in your resume.</div>
+                      <div style={{fontSize:11,color:"#9090a8"}}>These are required by the JD but not found in your resume.</div>
                     </div>
                   )}
 
                   {/* Suggested Skills */}
                   {jdResult.suggestedSkills&&(
-                    <div style={{background:"#0f0f0f",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+                    <div style={{background:"#282838",border:"1px solid #3a3a4a",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                         <div style={{fontSize:11,color:"#c9a84c",fontWeight:"bold",textTransform:"uppercase",letterSpacing:".08em"}}>⚡ Optimized Skills List</div>
                         <button onClick={()=>applyJDChange("skills",jdResult.suggestedSkills)} style={{fontSize:11,padding:"3px 10px",borderRadius:6,border:`1px solid ${jdApplied.skills?"#22c55e":"#c9a84c44"}`,background:"transparent",color:jdApplied.skills?"#22c55e":"#c9a84c",cursor:"pointer"}}>{jdApplied.skills?"✓ Applied":"Apply →"}</button>
                       </div>
-                      <div style={{fontSize:12,color:"#888",lineHeight:1.6,background:"#1a1a1a",borderRadius:6,padding:"8px 10px",borderLeft:"2px solid #c9a84c"}}>{jdResult.suggestedSkills}</div>
+                      <div style={{fontSize:12,color:"#888",lineHeight:1.6,background:"#303045",borderRadius:6,padding:"8px 10px",borderLeft:"2px solid #c9a84c"}}>{jdResult.suggestedSkills}</div>
                     </div>
                   )}
 
                   {/* New Summary */}
                   {jdResult.newSummary&&(
-                    <div style={{background:"#0f0f0f",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+                    <div style={{background:"#282838",border:"1px solid #3a3a4a",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                         <div style={{fontSize:11,color:"#c9a84c",fontWeight:"bold",textTransform:"uppercase",letterSpacing:".08em"}}>📝 JD-Tailored Summary</div>
                         <button onClick={()=>applyJDChange("summary",jdResult.newSummary)} style={{fontSize:11,padding:"3px 10px",borderRadius:6,border:`1px solid ${jdApplied.summary?"#22c55e":"#c9a84c44"}`,background:"transparent",color:jdApplied.summary?"#22c55e":"#c9a84c",cursor:"pointer"}}>{jdApplied.summary?"✓ Applied":"Apply →"}</button>
                       </div>
-                      <div style={{fontSize:13,color:"#ccc",lineHeight:1.7,background:"#1a1a1a",borderRadius:6,padding:"10px 12px",borderLeft:"2px solid #c9a84c"}}>{jdResult.newSummary}</div>
+                      <div style={{fontSize:13,color:"#ccc",lineHeight:1.7,background:"#303045",borderRadius:6,padding:"10px 12px",borderLeft:"2px solid #c9a84c"}}>{jdResult.newSummary}</div>
                     </div>
                   )}
 
@@ -791,15 +801,15 @@ export default function ResumePro() {
                     if(!exp) return null;
                     const key=`bullets_${nb.expIndex}`;
                     return(
-                      <div key={i} style={{background:"#0f0f0f",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+                      <div key={i} style={{background:"#282838",border:"1px solid #3a3a4a",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                           <div>
                             <div style={{fontSize:11,color:"#c9a84c",fontWeight:"bold",textTransform:"uppercase",letterSpacing:".08em"}}>💼 Rewritten Bullets</div>
-                            <div style={{fontSize:12,color:"#555",marginTop:2}}>{exp.role} @ {exp.company}</div>
+                            <div style={{fontSize:12,color:"#9090a8",marginTop:2}}>{exp.role} @ {exp.company}</div>
                           </div>
                           <button onClick={()=>applyJDChange(key,nb.bullets)} style={{fontSize:11,padding:"3px 10px",borderRadius:6,border:`1px solid ${jdApplied[key]?"#22c55e":"#c9a84c44"}`,background:"transparent",color:jdApplied[key]?"#22c55e":"#c9a84c",cursor:"pointer"}}>{jdApplied[key]?"✓ Applied":"Apply →"}</button>
                         </div>
-                        <div style={{background:"#1a1a1a",borderRadius:6,padding:"10px 12px",borderLeft:"2px solid #c9a84c"}}>
+                        <div style={{background:"#303045",borderRadius:6,padding:"10px 12px",borderLeft:"2px solid #c9a84c"}}>
                           {nb.bullets.map((b,j)=><div key={j} style={{fontSize:13,color:"#ccc",lineHeight:1.65,marginBottom:j<nb.bullets.length-1?6:0}}>• {b}</div>)}
                         </div>
                       </div>
@@ -808,7 +818,7 @@ export default function ResumePro() {
 
                   {/* Gaps & Tips */}
                   {jdResult.gaps?.length>0&&(
-                    <div style={{background:"#0d0d0d",border:"1px solid #1e1e1e",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+                    <div style={{background:"#1a1a2a",border:"1px solid #3a3a4a",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
                       <div style={{fontSize:11,color:"#ef4444",fontWeight:"bold",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>🚧 Experience Gaps</div>
                       {jdResult.gaps.map((g,i)=><div key={i} style={{fontSize:13,color:"#888",marginBottom:5,paddingLeft:10}}>→ {g}</div>)}
                     </div>
@@ -820,7 +830,7 @@ export default function ResumePro() {
                     </div>
                   )}
 
-                  <div style={{textAlign:"center",padding:"12px 0 4px",fontSize:12,color:"#333"}}>Apply changes above, then check Preview to see your tailored resume.</div>
+                  <div style={{textAlign:"center",padding:"12px 0 4px",fontSize:12,color:"#7878a0"}}>Apply changes above, then check Preview to see your tailored resume.</div>
                 </div>
               )}
             </div>
@@ -829,22 +839,22 @@ export default function ResumePro() {
 
         {/* ══════ ARRANGE ══════ */}
         {activeTab==="arrange"&&(
-          <div style={{flex:1,display:"flex",gap:0,overflow:"hidden"}}>
+          <div style={{flex:1,display:"flex",flexWrap:"wrap",overflowY:"auto",gap:0}}>
             {/* Left: controls */}
-            <div style={{width:320,display:"flex",flexDirection:"column",borderRight:"1px solid #1a1a1a",overflowY:"auto",background:"#0a0a0a"}}>
-              <div style={{padding:"14px 16px",borderBottom:"1px solid #1a1a1a"}}>
+            <div style={{flex:"1 1 280px",minWidth:240,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",overflowY:"auto",background:"#252535"}}>
+              <div style={{padding:"14px 16px",borderBottom:"1px solid #3a3a4a"}}>
                 <div style={{fontSize:13,color:"#c9a84c",fontWeight:"bold",marginBottom:2}}>⇅ Section Arranger</div>
-                <div style={{fontSize:11,color:"#555",lineHeight:1.6}}>Move rows up/down. Split a section to its own row, or merge it below as a parallel column.</div>
+                <div style={{fontSize:11,color:"#9090a8",lineHeight:1.6}}>Move rows up/down. Split a section to its own row, or merge it below as a parallel column.</div>
               </div>
               <div style={{padding:14,flex:1}}>
                 {sectionLayout.map((row,rowIdx)=>(
                   <div key={rowIdx} style={{marginBottom:8}}>
-                    <div style={{fontSize:10,color:"#444",marginBottom:4,letterSpacing:".08em"}}>ROW {rowIdx+1} {row.length>1?"(parallel columns)":""}</div>
-                    <div style={{background:"#111",border:"1px solid #1e1e1e",borderRadius:10,padding:10}}>
+                    <div style={{fontSize:10,color:"#8888a0",marginBottom:4,letterSpacing:".08em"}}>ROW {rowIdx+1} {row.length>1?"(parallel columns)":""}</div>
+                    <div style={{background:"#2a2a3a",border:"1px solid #3a3a4a",borderRadius:10,padding:10}}>
                       {/* Row order arrows */}
                       <div style={{display:"flex",justifyContent:"flex-end",gap:4,marginBottom:8}}>
-                        <button className="row-ctrl" onClick={()=>moveRowUp(rowIdx)} disabled={rowIdx===0} style={{padding:"2px 8px",borderRadius:5,border:"1px solid #252525",background:"transparent",color:rowIdx===0?"#333":"#777",cursor:rowIdx===0?"default":"pointer",fontSize:12}}>↑ Up</button>
-                        <button className="row-ctrl" onClick={()=>moveRowDown(rowIdx)} disabled={rowIdx===sectionLayout.length-1} style={{padding:"2px 8px",borderRadius:5,border:"1px solid #252525",background:"transparent",color:rowIdx===sectionLayout.length-1?"#333":"#777",cursor:rowIdx===sectionLayout.length-1?"default":"pointer",fontSize:12}}>↓ Down</button>
+                        <button className="row-ctrl" onClick={()=>moveRowUp(rowIdx)} disabled={rowIdx===0} style={{padding:"2px 8px",borderRadius:5,border:"1px solid #3a3a4a",background:"transparent",color:rowIdx===0?"#333":"#777",cursor:rowIdx===0?"default":"pointer",fontSize:12}}>↑ Up</button>
+                        <button className="row-ctrl" onClick={()=>moveRowDown(rowIdx)} disabled={rowIdx===sectionLayout.length-1} style={{padding:"2px 8px",borderRadius:5,border:"1px solid #3a3a4a",background:"transparent",color:rowIdx===sectionLayout.length-1?"#333":"#777",cursor:rowIdx===sectionLayout.length-1?"default":"pointer",fontSize:12}}>↓ Down</button>
                       </div>
                       {row.map((secId,colIdx)=>{
                         const isCustom=secId.startsWith("custom_");
@@ -852,15 +862,15 @@ export default function ResumePro() {
                         const label=isCustom?(data.customSections.find(x=>x.id===cid)?.title||"Custom"):SECTION_META[secId]?.label||secId;
                         const icon=isCustom?"✏️":SECTION_META[secId]?.icon||"•";
                         return(
-                          <div key={colIdx} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 10px",background:"#1a1a1a",borderRadius:7,marginBottom:colIdx<row.length-1?6:0,border:"1px solid #252525"}}>
+                          <div key={colIdx} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 10px",background:"#303045",borderRadius:7,marginBottom:colIdx<row.length-1?6:0,border:"1px solid #3a3a4a"}}>
                             <span style={{fontSize:14}}>{icon}</span>
                             <span style={{flex:1,fontSize:13,color:"#c9a84c"}}>{label}</span>
                             <div style={{display:"flex",gap:4}}>
                               {row.length>1&&(
-                                <button onClick={()=>splitRow(rowIdx,colIdx)} title="Split to own row" style={{fontSize:10,padding:"2px 7px",borderRadius:5,border:"1px solid #333",background:"transparent",color:"#666",cursor:"pointer"}}>⊡ Split</button>
+                                <button onClick={()=>splitRow(rowIdx,colIdx)} title="Split to own row" style={{fontSize:10,padding:"2px 7px",borderRadius:5,border:"1px solid #4a4a5a",background:"transparent",color:"#9a9ab0",cursor:"pointer"}}>⊡ Split</button>
                               )}
                               {rowIdx<sectionLayout.length-1&&(
-                                <button onClick={()=>mergeRight(rowIdx,colIdx)} title="Merge into row below as parallel column" style={{fontSize:10,padding:"2px 7px",borderRadius:5,border:"1px solid #333",background:"transparent",color:"#666",cursor:"pointer"}}>⊞ Parallel↓</button>
+                                <button onClick={()=>mergeRight(rowIdx,colIdx)} title="Merge into row below as parallel column" style={{fontSize:10,padding:"2px 7px",borderRadius:5,border:"1px solid #4a4a5a",background:"transparent",color:"#9a9ab0",cursor:"pointer"}}>⊞ Parallel↓</button>
                               )}
                             </div>
                           </div>
@@ -869,19 +879,19 @@ export default function ResumePro() {
                     </div>
                   </div>
                 ))}
-                <div style={{marginTop:16,padding:12,background:"#0d0d0d",borderRadius:8,border:"1px dashed #1e1e1e"}}>
-                  <div style={{fontSize:11,color:"#444",lineHeight:1.7}}>
-                    <strong style={{color:"#666"}}>Tips:</strong><br/>
-                    • <strong style={{color:"#555"}}>↑ / ↓</strong> — reorder rows<br/>
-                    • <strong style={{color:"#555"}}>⊞ Parallel↓</strong> — place section side-by-side with the row below<br/>
-                    • <strong style={{color:"#555"}}>⊡ Split</strong> — move section to its own row<br/>
+                <div style={{marginTop:16,padding:12,background:"#1a1a2a",borderRadius:8,border:"1px dashed #3a3a4a"}}>
+                  <div style={{fontSize:11,color:"#8888a0",lineHeight:1.7}}>
+                    <strong style={{color:"#9a9ab0"}}>Tips:</strong><br/>
+                    • <strong style={{color:"#9090a8"}}>↑ / ↓</strong> — reorder rows<br/>
+                    • <strong style={{color:"#9090a8"}}>⊞ Parallel↓</strong> — place section side-by-side with the row below<br/>
+                    • <strong style={{color:"#9090a8"}}>⊡ Split</strong> — move section to its own row<br/>
                     • Add sections from the Edit → Personal tab
                   </div>
                 </div>
               </div>
             </div>
             {/* Right: live preview */}
-            <div style={{flex:1,overflowY:"auto",background:"#1a1a1a",padding:"28px 16px"}}>
+            <div style={{flex:1,overflowY:"auto",background:"#303045",padding:"28px 16px"}}>
               <ResumeDoc data={data} T={T} skills={skills} layout={sectionLayout} enabledSections={enabledSections}/>
             </div>
           </div>
@@ -889,68 +899,68 @@ export default function ResumePro() {
 
         {/* ══════ STYLE ══════ */}
         {activeTab==="style"&&(
-          <div style={{flex:1,display:"flex",overflow:"hidden"}}>
-            <div style={{width:300,display:"flex",flexDirection:"column",borderRight:"1px solid #1a1a1a",overflowY:"auto",background:"#0a0a0a"}}>
-              <div style={{padding:"14px 16px",borderBottom:"1px solid #1a1a1a"}}>
+          <div style={{flex:1,display:"flex",flexWrap:"wrap",overflowY:"auto"}}>
+            <div style={{flex:"1 1 260px",minWidth:240,display:"flex",flexDirection:"column",borderRight:"1px solid #3a3a4a",overflowY:"auto",background:"#252535"}}>
+              <div style={{padding:"14px 16px",borderBottom:"1px solid #3a3a4a"}}>
                 <div style={{fontSize:13,color:"#c9a84c",fontWeight:"bold",marginBottom:2}}>🎨 Style Editor</div>
-                <div style={{fontSize:11,color:"#555"}}>Full control — colors, fonts, layout</div>
+                <div style={{fontSize:11,color:"#9090a8"}}>Full control — colors, fonts, layout</div>
               </div>
 
               {/* Palettes */}
-              <div style={{padding:"14px 16px",borderBottom:"1px solid #1a1a1a"}}>
-                <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>Preset Palettes</div>
+              <div style={{padding:"14px 16px",borderBottom:"1px solid #3a3a4a"}}>
+                <div style={{fontSize:10,color:"#9090a8",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>Preset Palettes</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
                   {PRESET_PALETTES.map((p,i)=>(
-                    <button key={i} className="palette-btn" onClick={()=>applyPalette(p)} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 8px",borderRadius:8,border:"1px solid #1e1e1e",background:"transparent",cursor:"pointer",transition:"all .15s",textAlign:"left"}}>
-                      <div style={{display:"flex",gap:2,flexShrink:0}}>{[p.header,p.accent,p.bg].map((c,j)=><div key={j} style={{width:9,height:16,borderRadius:3,background:c,border:"1px solid #333"}}/>)}</div>
-                      <span style={{fontSize:10,color:"#666",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                    <button key={i} className="palette-btn" onClick={()=>applyPalette(p)} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 8px",borderRadius:8,border:"1px solid #3a3a4a",background:"transparent",cursor:"pointer",transition:"all .15s",textAlign:"left"}}>
+                      <div style={{display:"flex",gap:2,flexShrink:0}}>{[p.header,p.accent,p.bg].map((c,j)=><div key={j} style={{width:9,height:16,borderRadius:3,background:c,border:"1px solid #4a4a5a"}}/>)}</div>
+                      <span style={{fontSize:10,color:"#9a9ab0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Color pickers */}
-              <div style={{padding:"14px 16px",borderBottom:"1px solid #1a1a1a"}}>
-                <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>Custom Colors</div>
+              <div style={{padding:"14px 16px",borderBottom:"1px solid #3a3a4a"}}>
+                <div style={{fontSize:10,color:"#9090a8",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>Custom Colors</div>
                 {[["header","Header BG"],["accent","Accent"],["bg","Page BG"],["text","Body Text"],["border","Border"],["skillBg","Tag BG"]].map(([key,label])=>(
                   <div key={key} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:9}}>
-                    <span style={{fontSize:12,color:"#666"}}>{label}</span>
+                    <span style={{fontSize:12,color:"#9a9ab0"}}>{label}</span>
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{fontSize:10,color:"#444",fontFamily:"monospace"}}>{T[key]||"#000000"}</span>
-                      <input type="color" value={T[key]||"#000000"} onChange={e=>setStyle(key,e.target.value)} style={{width:26,height:26,border:"1px solid #333",borderRadius:6,cursor:"pointer",padding:2,background:"transparent"}}/>
+                      <span style={{fontSize:10,color:"#8888a0",fontFamily:"monospace"}}>{T[key]||"#000000"}</span>
+                      <input type="color" value={T[key]||"#000000"} onChange={e=>setStyle(key,e.target.value)} style={{width:26,height:26,border:"1px solid #4a4a5a",borderRadius:6,cursor:"pointer",padding:2,background:"transparent"}}/>
                     </div>
                   </div>
                 ))}
               </div>
 
               {/* Fonts */}
-              <div style={{padding:"14px 16px",borderBottom:"1px solid #1a1a1a"}}>
-                <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>Fonts</div>
+              <div style={{padding:"14px 16px",borderBottom:"1px solid #3a3a4a"}}>
+                <div style={{fontSize:10,color:"#9090a8",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>Fonts</div>
                 {[["headerFont","Heading Font"],["bodyFont","Body Font"]].map(([key,label])=>(
                   <div key={key} style={{marginBottom:12}}>
                     <label style={{...lbl,marginBottom:6}}>{label}</label>
                     <select value={T[key]} onChange={e=>setStyle(key,e.target.value)} style={{...inp,cursor:"pointer"}}>
                       {FONT_OPTIONS.map(f=><option key={f.value} value={f.value}>{f.label}</option>)}
                     </select>
-                    <div style={{marginTop:5,fontSize:15,color:"#555",fontFamily:T[key]}}>The quick brown fox</div>
+                    <div style={{marginTop:5,fontSize:15,color:"#9090a8",fontFamily:T[key]}}>The quick brown fox</div>
                   </div>
                 ))}
               </div>
 
               {/* Layout */}
               <div style={{padding:"14px 16px"}}>
-                <div style={{fontSize:10,color:"#555",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>Header Layout</div>
+                <div style={{fontSize:10,color:"#9090a8",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>Header Layout</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
                   {[["classic","Classic"],["sidebar","Sidebar"],["minimal","Minimal"],["tech","Terminal"],["editorial","Editorial"]].map(([l,label])=>(
                     <button key={l} className="layout-btn" onClick={()=>setStyle("layout",l)} style={{padding:"8px 6px",borderRadius:8,border:"1px solid",borderColor:T.layout===l?"#c9a84c":"#1e1e1e",background:T.layout===l?"#c9a84c11":"transparent",color:T.layout===l?"#c9a84c":"#555",fontSize:11,cursor:"pointer",transition:"all .15s"}}>{label}</button>
                   ))}
                 </div>
-                <button onClick={()=>setCustomStyle({})} style={{marginTop:12,width:"100%",padding:7,borderRadius:8,border:"1px dashed #2a2a2a",background:"transparent",color:"#444",cursor:"pointer",fontSize:11}}>↺ Reset to template defaults</button>
+                <button onClick={()=>setCustomStyle({})} style={{marginTop:12,width:"100%",padding:7,borderRadius:8,border:"1px dashed #4a4a5a",background:"transparent",color:"#8888a0",cursor:"pointer",fontSize:11}}>↺ Reset to template defaults</button>
               </div>
             </div>
 
             {/* Live preview */}
-            <div style={{flex:1,overflowY:"auto",background:"#1a1a1a",padding:"28px 16px"}}>
+            <div style={{flex:1,overflowY:"auto",background:"#303045",padding:"28px 16px"}}>
               <ResumeDoc data={data} T={T} skills={skills} layout={sectionLayout} enabledSections={enabledSections}/>
             </div>
           </div>
@@ -961,7 +971,7 @@ export default function ResumePro() {
 }
 
 function FH({children}){
-  return <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#c9a84c",marginBottom:16,paddingBottom:8,borderBottom:"1px solid #1a1a1a"}}>{children}</div>;
+  return <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#c9a84c",marginBottom:16,paddingBottom:8,borderBottom:"1px solid #3a3a4a"}}>{children}</div>;
 }
 
 /* ════════════════════════════════════════════════════════
@@ -972,7 +982,7 @@ function ResumeDoc({data,T,skills,layout,enabledSections}){
   return(
     <div id="resume-print" style={{maxWidth:700,margin:"0 auto"}}>
       {isEmpty
-        ?<div style={{textAlign:"center",padding:"80px 20px",color:"#333"}}><div style={{fontSize:40,marginBottom:12}}>✦</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:"#444"}}>Fill in the Edit tab to see your live preview</div></div>
+        ?<div style={{textAlign:"center",padding:"80px 20px",color:"#7878a0"}}><div style={{fontSize:40,marginBottom:12}}>✦</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:"#8888a0"}}>Fill in the Edit tab to see your live preview</div></div>
         :<ResumeShell data={data} T={T} skills={skills} layout={layout} enabledSections={enabledSections}/>
       }
     </div>
@@ -1094,7 +1104,7 @@ function RSection({title,T,children}){
 
 function SummarySection({data,T}){
   if(!data.summary.trim()) return null;
-  return <RSection title="Summary" T={T}><p style={{margin:0,fontSize:13.5,lineHeight:1.8,color:"#444"}}>{data.summary}</p></RSection>;
+  return <RSection title="Summary" T={T}><p style={{margin:0,fontSize:13.5,lineHeight:1.8,color:"#8888a0"}}>{data.summary}</p></RSection>;
 }
 
 function ExpSection({data,T}){
@@ -1109,7 +1119,7 @@ function ExpSection({data,T}){
             <div style={{fontSize:11,color:"#999",whiteSpace:"nowrap"}}>{exp.period}</div>
           </div>
           <div style={{fontSize:12.5,color:T.accent,marginBottom:6,fontStyle:"italic"}}>{exp.company}</div>
-          <ul style={{margin:0,paddingLeft:16}}>{exp.bullets.filter(b=>b.trim()).map((b,j)=><li key={j} style={{fontSize:13,lineHeight:1.7,color:"#555",marginBottom:2}}>{b}</li>)}</ul>
+          <ul style={{margin:0,paddingLeft:16}}>{exp.bullets.filter(b=>b.trim()).map((b,j)=><li key={j} style={{fontSize:13,lineHeight:1.7,color:"#9090a8",marginBottom:2}}>{b}</li>)}</ul>
         </div>
       ))}
     </RSection>
@@ -1160,7 +1170,7 @@ function AchSection({data,T}){
   if(!achs.length) return null;
   return(
     <RSection title="Achievements" T={T}>
-      <ul style={{margin:0,paddingLeft:16}}>{achs.map(a=><li key={a.id} style={{fontSize:13,lineHeight:1.7,color:"#555",marginBottom:4}}>{a.text}</li>)}</ul>
+      <ul style={{margin:0,paddingLeft:16}}>{achs.map(a=><li key={a.id} style={{fontSize:13,lineHeight:1.7,color:"#9090a8",marginBottom:4}}>{a.text}</li>)}</ul>
     </RSection>
   );
 }
@@ -1176,7 +1186,7 @@ function ProjSection({data,T}){
             <div style={{fontWeight:700,fontSize:13,color:T.text}}>{p.name}</div>
             {p.link&&<div style={{fontSize:11,color:T.accent}}>{p.link}</div>}
           </div>
-          {p.desc&&<div style={{fontSize:12.5,color:"#666",marginTop:2,lineHeight:1.6}}>{p.desc}</div>}
+          {p.desc&&<div style={{fontSize:12.5,color:"#9a9ab0",marginTop:2,lineHeight:1.6}}>{p.desc}</div>}
         </div>
       ))}
     </RSection>
@@ -1205,7 +1215,7 @@ function VolSection({data,T}){
             <div style={{fontSize:11,color:"#999"}}>{v.period}</div>
           </div>
           <div style={{fontSize:12.5,color:T.accent,fontStyle:"italic"}}>{v.org}</div>
-          {v.desc&&<div style={{fontSize:12,color:"#666",marginTop:2}}>{v.desc}</div>}
+          {v.desc&&<div style={{fontSize:12,color:"#9a9ab0",marginTop:2}}>{v.desc}</div>}
         </div>
       ))}
     </RSection>
@@ -1217,7 +1227,7 @@ function CustomSection({sec,T}){
   if(!items.length) return null;
   return(
     <RSection title={sec.title||"Custom"} T={T}>
-      <ul style={{margin:0,paddingLeft:16}}>{items.map((item,i)=><li key={i} style={{fontSize:13,lineHeight:1.7,color:"#555",marginBottom:3}}>{item}</li>)}</ul>
+      <ul style={{margin:0,paddingLeft:16}}>{items.map((item,i)=><li key={i} style={{fontSize:13,lineHeight:1.7,color:"#9090a8",marginBottom:3}}>{item}</li>)}</ul>
     </RSection>
   );
 }
