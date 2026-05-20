@@ -236,11 +236,11 @@ export default function ResumePro() {
       let text="";
       if(file.type==="application/pdf"){
         const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
-        const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:'Extract resume and return ONLY JSON: {name,title,email,phone,location,linkedin,website,summary,experience:[{company,role,period,bullets:[]}],education:[{institution,degree,year}],skills,certifications:[{name,issuer,year}],achievements:[{text}],projects:[{name,desc,link}],languages:[{language,level}]}',messages:[{role:"user",content:[{type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}},{type:"text",text:"Extract resume data into JSON."}]}]})});
+        const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,system:'Extract resume and return ONLY JSON: {name,title,email,phone,location,linkedin,website,summary,experience:[{company,role,period,bullets:[]}],education:[{institution,degree,year}],skills,certifications:[{name,issuer,year}],achievements:[{text}],projects:[{name,desc,link}],languages:[{language,level}]}',messages:[{role:"user",content:[{type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}},{type:"text",text:"Extract resume data into JSON."}]}]})});
         const d=await resp.json();text=d.content?.map(b=>b.text||"").join("")||"";
       } else {
         text=await file.text();
-        const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:'Extract resume and return ONLY JSON: {name,title,email,phone,location,linkedin,website,summary,experience:[{company,role,period,bullets:[]}],education:[{institution,degree,year}],skills,certifications:[{name,issuer,year}],achievements:[{text}],projects:[{name,desc,link}],languages:[{language,level}]}',messages:[{role:"user",content:text}]})});
+        const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,system:'Extract resume and return ONLY JSON: {name,title,email,phone,location,linkedin,website,summary,experience:[{company,role,period,bullets:[]}],education:[{institution,degree,year}],skills,certifications:[{name,issuer,year}],achievements:[{text}],projects:[{name,desc,link}],languages:[{language,level}]}',messages:[{role:"user",content:text}]})});
         const d=await resp.json();text=d.content?.map(b=>b.text||"").join("")||"";
       }
       const p=JSON.parse(text.replace(/```json|```/g,"").trim());
@@ -269,7 +269,7 @@ export default function ResumePro() {
         setSectionLayout(prev=>[...prev,...toEnable.filter(s=>!prev.flat().includes(s)).map(s=>[s])]);
       }
       setActiveTab("form");
-    } catch(err) { console.error("Import error:",err); setImportError("Could not parse. Make sure the PDF has selectable text (not a scanned image), or try a .txt file."); }
+    } catch(err) { console.error("Import error:",err); setImportError("Could not parse: "+err.message+". Make sure the PDF has selectable text (not a scanned image), or try a .txt file."); }
     setImportLoading(false);
   };
 
@@ -279,7 +279,7 @@ export default function ResumePro() {
     const failed=ats.tips.map(c=>c.label).join(", ");
     const resume=`Name:${data.name}, Title:${data.title}\nSummary:${data.summary}\nExp:${data.experience.map(e=>`${e.role} at ${e.company}: ${e.bullets.filter(b=>b).join("; ")}`).join(" | ")}\nSkills:${data.skills}\nFailed checks:${failed||"none"}`;
     try {
-      const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:'You are an expert resume coach. Return ONLY a JSON array: [{section:"Summary"|"Skills"|"Experience"|"Certifications"|"Personal",issue:"short description",suggestion:"exact ready-to-use text"}]. Be specific to their role. No markdown.',messages:[{role:"user",content:resume}]})});
+      const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,system:'You are an expert resume coach. Return ONLY a JSON array: [{section:"Summary"|"Skills"|"Experience"|"Certifications"|"Personal",issue:"short description",suggestion:"exact ready-to-use text"}]. Be specific to their role. No markdown.',messages:[{role:"user",content:resume}]})});
       const d=await resp.json();
       const raw=d.content?.map(b=>b.text||"").join("")||"";
       setAiSuggestions(JSON.parse(raw.replace(/```json|```/g,"").trim()));
@@ -307,7 +307,7 @@ export default function ResumePro() {
       const resp = await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:1000,
+          model:"claude-sonnet-4-20250514", max_tokens:4000,
           system:"You are an expert resume optimizer. Given a resume and a job description (JD), analyze the match and return ONLY valid JSON (no markdown, no backticks) with this exact shape: {matchScore:<0-100>,titleMatch:<string>,keywords:[<strings>],missingSkills:[<strings>],suggestedSkills:<comma-separated string>,newSummary:<2-3 sentences tailored to JD using candidate background>,newBullets:[{expIndex:<number>,bullets:[<strings>]}],gaps:[<strings>],tips:[<strings>]}. Keep bullets honest, grounded in actual experience.",
           messages:[{role:"user",content:"JOB DESCRIPTION:\n"+jdText+"\n\nRESUME:\n"+resumeSnap}]
         })
