@@ -1,18 +1,18 @@
 {
   "files": {
-    "main.js": "/Resume-pro/static/js/main.d8e9bf1f.js",
+    "main.js": "/Resume-pro/static/js/main.3d4d4919.js",
     "static/js/239.3b51d68f.chunk.js": "/Resume-pro/static/js/239.3b51d68f.chunk.js",
     "static/js/396.007aeba6.chunk.js": "/Resume-pro/static/js/396.007aeba6.chunk.js",
     "static/js/977.16e6eb7f.chunk.js": "/Resume-pro/static/js/977.16e6eb7f.chunk.js",
     "static/js/455.044de568.chunk.js": "/Resume-pro/static/js/455.044de568.chunk.js",
     "index.html": "/Resume-pro/index.html",
-    "main.d8e9bf1f.js.map": "/Resume-pro/static/js/main.d8e9bf1f.js.map",
+    "main.3d4d4919.js.map": "/Resume-pro/static/js/main.3d4d4919.js.map",
     "239.3b51d68f.chunk.js.map": "/Resume-pro/static/js/239.3b51d68f.chunk.js.map",
     "396.007aeba6.chunk.js.map": "/Resume-pro/static/js/396.007aeba6.chunk.js.map",
     "977.16e6eb7f.chunk.js.map": "/Resume-pro/static/js/977.16e6eb7f.chunk.js.map",
     "455.044de568.chunk.js.map": "/Resume-pro/static/js/455.044de568.chunk.js.map"
   },
   "entrypoints": [
-    "static/js/main.d8e9bf1f.js"
+    "static/js/main.3d4d4919.js"
   ]
 }
