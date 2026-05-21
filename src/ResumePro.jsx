@@ -51,35 +51,78 @@ const SECTION_META = {
 
 /* ── ATS ── */
 function calcATS(data) {
+  const skillsStr = Array.isArray(data.skills) ? data.skills.join(", ") : (data.skills||"");
   const text = [data.name, data.title, data.summary,
     ...data.experience.flatMap(e => [e.role, e.company, ...e.bullets]),
-    ...data.education.map(e => e.degree), data.skills,
+    ...data.education.map(e => e.degree), skillsStr,
     ...(data.certifications||[]).map(c => c.name),
     ...(data.achievements||[]).map(a => a.text),
   ].join(" ").toLowerCase();
 
-  const bulletCount = data.experience.flatMap(e => e.bullets.filter(b => b.trim())).length;
-  const actionVerbs = ["led","managed","built","developed","created","improved","increased","decreased","launched","designed","implemented","delivered","collaborated","optimized","reduced","achieved","spearheaded","drove","generated","executed"].filter(v => text.includes(v));
-  const summaryLen  = data.summary.trim().split(/\s+/).length;
+  const bullets      = data.experience.flatMap(e => e.bullets.filter(b => b.trim()));
+  const bulletCount  = bullets.length;
+  const summaryWords = data.summary.trim().split(/\s+/).filter(Boolean).length;
+  const expCount     = data.experience.filter(e=>e.company&&e.role).length;
+  const skillCount   = skillsStr.split(",").map(s=>s.trim()).filter(Boolean).length;
+  const actionVerbs  = ["led","managed","built","developed","created","improved","increased","decreased","launched","designed","implemented","delivered","collaborated","optimized","reduced","achieved","spearheaded","drove","generated","executed","engineered","automated","deployed","migrated","streamlined","configured","monitored","resolved","integrated","architected"].filter(v => text.includes(v));
+
+  // Penalty checks — things that REDUCE score
+  const hasObjective       = /objective|i am|i'm a|looking for/i.test(text);
+  const hasTableOrGraph    = false; // can't detect in text
+  const bulletsTooLong     = bullets.filter(b=>b.split(" ").length>30).length;
+  const bulletsNoVerb      = bullets.filter(b=>!actionVerbs.some(v=>b.toLowerCase().startsWith(v))).length;
+  const hasQuantified      = bullets.filter(b=>/\d+%|\$[\d,]+|\d+x|\d+\s*(people|team|users|clients|projects|employees|engineers|servers|pipelines|hours|days|months)/i.test(b)).length;
+  const summaryTooLong     = summaryWords > 100;
+  const summaryTooShort    = summaryWords < 20 && data.summary.trim().length > 0;
+  const fewSkills          = skillCount > 0 && skillCount < 6;
+  const tooManySkills      = skillCount > 25;
+  const missingDates       = data.experience.filter(e=>e.company&&!e.period).length;
+  const shortBullets       = bullets.filter(b=>b.split(" ").length<5).length;
 
   const checks = [
-    { label:"Full name present",                  pass:data.name.trim().length>0,                      weight:5,  fix:'Add your full name in Personal Info.' },
-    { label:"Professional title",                 pass:data.title.trim().length>0,                     weight:5,  fix:'Add a title e.g. "Senior Software Engineer".' },
-    { label:"Email address",                      pass:/\S+@\S+/.test(data.email),                     weight:5,  fix:"Add a professional email address." },
-    { label:"Phone number",                       pass:data.phone.trim().length>6,                     weight:5,  fix:"Add your phone number." },
-    { label:"Location (City, State)",             pass:data.location.trim().length>0,                  weight:3,  fix:'Add city & state, e.g. "Austin, TX".' },
-    { label:"LinkedIn profile",                   pass:data.linkedin.trim().length>0,                  weight:3,  fix:"Add your LinkedIn URL." },
-    { label:"Summary (80+ characters)",           pass:data.summary.trim().length>80,                  weight:10, fix:'Write 2-3 sentences. Try: "Results-driven [title] with X years in [field]."' },
-    { label:"Ideal summary length (30-80 words)", pass:summaryLen>=30&&summaryLen<=80,                 weight:4,  fix:"Aim for 30-80 words — concise but impactful." },
-    { label:"Work experience added",              pass:data.experience.some(e=>e.company&&e.role),     weight:15, fix:"Add at least one role with company & title." },
-    { label:"Education section",                  pass:data.education.some(e=>e.institution),          weight:10, fix:"Add your degree, institution, and year." },
-    { label:"Skills listed",                      pass:data.skills.trim().length>10,                   weight:10, fix:"List 6-12 skills separated by commas." },
-    { label:"4+ achievement bullet points",       pass:bulletCount>=4,                                 weight:10, fix:"Add 3-5 bullets per role." },
-    { label:"Quantified achievements",            pass:/\d+%|\$\d+|\d+x|\d+ (people|team|users|clients|projects|employees)/i.test(text), weight:10, fix:'Add numbers: "Increased sales by 35%", "Managed 8 engineers".' },
-    { label:"Action verbs used (3+)",             pass:actionVerbs.length>=3,                          weight:5,  fix:"Start bullets with: Led, Built, Increased, Designed, Delivered, Launched." },
+    // ── Contact & Identity (15 pts) ──
+    { label:"Full name present",            pass:data.name.trim().length>0,                          weight:4,  fix:"Add your full name in Personal Info.", category:"Contact" },
+    { label:"Professional title/headline",  pass:data.title.trim().length>0,                         weight:4,  fix:'Add a clear title e.g. "DevOps Engineer | Cloud Infrastructure".', category:"Contact" },
+    { label:"Email address",                pass:/\S+@\S+\.\S+/.test(data.email),                    weight:4,  fix:"Add a valid professional email address.", category:"Contact" },
+    { label:"Phone number",                 pass:data.phone.trim().length>6,                         weight:3,  fix:"Add your phone number.", category:"Contact" },
+
+    // ── Sections & Structure (20 pts) ──
+    { label:"Location included",            pass:data.location.trim().length>0,                      weight:2,  fix:'Add city & country e.g. "Bengaluru, India".', category:"Structure" },
+    { label:"LinkedIn profile URL",         pass:data.linkedin.trim().length>5,                      weight:3,  fix:"Add your LinkedIn URL — many ATS systems extract it.", category:"Structure" },
+    { label:"Work experience section",      pass:expCount>=1,                                        weight:8,  fix:"Add at least one role with company, title and dates.", category:"Structure" },
+    { label:"Education section",            pass:data.education.some(e=>e.institution&&e.degree),    weight:5,  fix:"Add your degree, institution and graduation year.", category:"Structure" },
+    { label:"Certifications listed",        pass:(data.certifications||[]).some(c=>c.name),          weight:2,  fix:"Add relevant certifications — they match job keywords.", category:"Structure" },
+
+    // ── Summary Quality (10 pts) ──
+    { label:"Summary present",              pass:summaryWords>=20,                                   weight:4,  fix:"Write a 2-4 sentence professional summary (20-80 words).", category:"Summary" },
+    { label:"Summary ideal length (20-80 words)", pass:summaryWords>=20&&summaryWords<=80,           weight:3,  fix:summaryTooLong?"Summary is too long (80+ words) — trim it down.":"Write a 20-80 word summary.", category:"Summary" },
+    { label:"No vague filler phrases",      pass:!hasObjective,                                      weight:3,  fix:'Avoid "I am looking for..." — use third-person impact language.', category:"Summary" },
+
+    // ── Skills (12 pts) ──
+    { label:"6+ skills listed",             pass:skillCount>=6,                                      weight:5,  fix:"List at least 6 relevant skills. ATS scans for keyword density.", category:"Skills" },
+    { label:"Skills not excessive (≤25)",   pass:skillCount<=25,                                     weight:2,  fix:"More than 25 skills looks keyword-stuffed. Keep the most relevant.", category:"Skills" },
+    { label:"Hard/technical skills present",pass:/(aws|azure|gcp|docker|kubernetes|python|sql|java|react|node|linux|git|jenkins|terraform|ansible)/i.test(skillsStr), weight:5, fix:"Include specific technical tools — ATS matches exact keywords.", category:"Skills" },
+
+    // ── Experience Quality (28 pts) ──
+    { label:"2+ roles listed",              pass:expCount>=2,                                        weight:4,  fix:"Add internships, freelance or part-time work to show progression.", category:"Experience" },
+    { label:"Dates on all roles",           pass:missingDates===0&&expCount>0,                       weight:4,  fix:"Add start/end dates to every role — missing dates confuse ATS parsers.", category:"Experience" },
+    { label:"4+ bullet points total",       pass:bulletCount>=4,                                     weight:5,  fix:"Add 3-5 bullet points per role describing your impact.", category:"Experience" },
+    { label:"Bullets start with action verbs", pass:bulletsNoVerb<=Math.floor(bulletCount*0.3),     weight:5,  fix:'Start each bullet with a strong verb: "Automated", "Deployed", "Reduced", "Built".', category:"Experience" },
+    { label:"Quantified achievements (2+)", pass:hasQuantified>=2,                                   weight:8,  fix:'Add metrics: "Reduced deploy time by 40%", "Maintained 99.9% uptime", "Managed 10+ servers".', category:"Experience" },
+    { label:"No overly long bullets (30+ words)", pass:bulletsTooLong===0,                           weight:2,  fix:"Keep bullets under 30 words — ATS truncates long lines.", category:"Experience" },
+
+    // ── Keywords & Formatting (15 pts) ──
+    { label:"Action verbs (5+)",            pass:actionVerbs.length>=5,                              weight:5,  fix:"Use more action verbs: Led, Built, Automated, Deployed, Configured, Resolved.", category:"Keywords" },
+    { label:"No short/vague bullets",       pass:shortBullets<=1,                                    weight:3,  fix:'Avoid bullets under 5 words — e.g. "Worked on AWS" gives no context.', category:"Keywords" },
+    { label:"Job title matches skills",     pass:data.title.length>0&&skillCount>=6,                 weight:4,  fix:"Make sure your title and skills are aligned — ATS checks title-to-skills match.", category:"Keywords" },
+    { label:"Projects section adds keywords",pass:(data.projects||[]).some(p=>p.name||p.desc),       weight:3,  fix:"Add a Projects section — it adds keyword density without cluttering experience.", category:"Keywords" },
   ];
 
-  const score = checks.reduce((s,c)=>s+(c.pass?c.weight:0),0);
+  // Raw score out of 100
+  const rawScore = checks.reduce((s,c)=>s+(c.pass?c.weight:0),0);
+  // Apply realism penalty: max real score is ~82 even with perfect resume (mirrors real ATS)
+  const score = Math.min(Math.round(rawScore * 0.82 + (rawScore===100?0:0)), 97);
+
   return { score, checks, tips:checks.filter(c=>!c.pass), actionVerbs };
 }
 
@@ -140,11 +183,13 @@ export default function ResumePro() {
   const [jdResult, setJdResult]         = useState(null); // { matchScore, missingSkills, suggestedSkills, newSummary, newBullets:[{expIndex,bullets:[]}], keywords:[], titleMatch }
   const [jdError, setJdError]           = useState("");
   const [jdApplied, setJdApplied]       = useState({});
+  const [skillStyle, setSkillStyle]     = useState("tags"); // tags | grouped | list | inline
+  const [compact,    setCompact]        = useState(false); // 1-page compact mode
   const fileRef = useRef();
 
   const T      = { ...TEMPLATES[templateKey], ...customStyle };
   const ats    = calcATS(data);
-  const skills = data.skills.split(",").map(s=>s.trim()).filter(Boolean);
+  const skills = (Array.isArray(data.skills)?data.skills.join(", "):data.skills||"").split(",").map(s=>s.trim()).filter(Boolean);
 
   /* ── Data setters ── */
   const set          = (f,v) => setData(d=>({...d,[f]:v}));
@@ -228,29 +273,134 @@ export default function ResumePro() {
     });
   };
 
+  /* ── Groq helper ── */
+  const groqFetch = async (systemPrompt, userContent) => {
+    const GROQ_KEY = process.env.REACT_APP_GROQ_API_KEY;
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_KEY}` },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 4000,
+        temperature: 0.2,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user",   content: userContent  }
+        ]
+      })
+    });
+    const d = await resp.json();
+    if(d.error) throw new Error(d.error.message);
+    return d.choices?.[0]?.message?.content || "";
+  };
+
+  /* ── PDF.js text extractor ── */
+  const extractPDFText = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfjsLib = window.pdfjsLib;
+    if(!pdfjsLib) throw new Error("PDF.js not loaded");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = "";
+    for(let i = 1; i <= pdf.numPages; i++){
+      const page = await pdf.getPage(i);
+      const tc   = await page.getTextContent();
+      fullText   += tc.items.map(item => item.str).join(" ") + "\n";
+    }
+    return fullText.trim();
+  };
+
+  /* ── Download PDF ── */
+  const handlePrint = async () => {
+    const el = document.getElementById("resume-print");
+    if(!el || !el.innerHTML.trim()){ 
+      setActiveTab("preview"); 
+      setTimeout(async()=>await doDownload(), 400); 
+      return; 
+    }
+    await doDownload();
+  };
+
+  const doDownload = async () => {
+    const el = document.getElementById("resume-print");
+    if(!el) return;
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF }    = await import("jspdf");
+      
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        width: el.scrollWidth,
+        height: el.scrollHeight,
+      });
+
+      const imgData = canvas.toDataURL("image/jpeg", 1.0);
+      const pdf = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+      
+      const pageW = 210; // A4 width mm
+      const pageH = 297; // A4 height mm
+      const imgW  = pageW;
+      const imgH  = (canvas.height * pageW) / canvas.width;
+
+      const pxPerMm   = canvas.width / pageW;
+      const pageHpx   = pageH * pxPerMm;
+      const totalPages = Math.ceil(canvas.height / pageHpx);
+
+      if(totalPages === 1){
+        // Perfect single page
+        pdf.addImage(imgData,"JPEG",0,0,imgW,imgH);
+      } else {
+        // Slice cleanly into pages - no overlap
+        for(let i = 0; i < totalPages; i++){
+          if(i > 0) pdf.addPage();
+          const srcY  = Math.round(i * pageHpx);
+          const srcH  = Math.min(pageHpx, canvas.height - srcY);
+          const tmpCanvas = document.createElement("canvas");
+          tmpCanvas.width  = canvas.width;
+          tmpCanvas.height = Math.round(pageHpx);
+          const ctx = tmpCanvas.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0,0,tmpCanvas.width,tmpCanvas.height);
+          ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, Math.round(srcH));
+          pdf.addImage(tmpCanvas.toDataURL("image/jpeg",1.0),"JPEG",0,0,pageW,pageH);
+        }
+      }
+
+      const name = el.querySelector("[data-name]")?.dataset?.name || "resume";
+      pdf.save(name+".pdf");
+    } catch(err){
+      console.error("PDF error:",err);
+      alert("Could not generate PDF: "+err.message);
+    }
+  };
+
   /* ── Import ── */
   const handleImport = async (file) => {
     if(!file) return;
     setImportLoading(true); setImportError("");
     try {
-      let text="";
-      if(file.type==="application/pdf"){
-        const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
-        const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,system:'Extract resume and return ONLY JSON: {name,title,email,phone,location,linkedin,website,summary,experience:[{company,role,period,bullets:[]}],education:[{institution,degree,year}],skills,certifications:[{name,issuer,year}],achievements:[{text}],projects:[{name,desc,link}],languages:[{language,level}]}',messages:[{role:"user",content:[{type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}},{type:"text",text:"Extract resume data into JSON."}]}]})});
-        const d=await resp.json();text=d.content?.map(b=>b.text||"").join("")||"";
+      let text = "";
+      if(file.type === "application/pdf"){
+        text = await extractPDFText(file);
+        if(!text || text.length < 50) throw new Error("PDF appears to be a scanned image — no text found. Please try a .txt file.");
       } else {
-        text=await file.text();
-        const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,system:'Extract resume and return ONLY JSON: {name,title,email,phone,location,linkedin,website,summary,experience:[{company,role,period,bullets:[]}],education:[{institution,degree,year}],skills,certifications:[{name,issuer,year}],achievements:[{text}],projects:[{name,desc,link}],languages:[{language,level}]}',messages:[{role:"user",content:text}]})});
-        const d=await resp.json();text=d.content?.map(b=>b.text||"").join("")||"";
+        text = await file.text();
       }
-      const p=JSON.parse(text.replace(/```json|```/g,"").trim());
+      const raw = await groqFetch(
+        'Extract the resume and return ONLY valid JSON (no markdown, no backticks): {name,title,email,phone,location,linkedin,website,summary,experience:[{company,role,period,bullets:[]}],education:[{institution,degree,year}],skills,certifications:[{name,issuer,year}],achievements:[{text}],projects:[{name,desc,link}],languages:[{language,level}]}',
+        text
+      );
+      const p = JSON.parse(raw.replace(/```json|```/g,"").trim());
       const newData={
         name:p.name||"",title:p.title||"",email:p.email||"",phone:p.phone||"",
         location:p.location||"",linkedin:p.linkedin||"",website:p.website||"",
         summary:p.summary||"",
         experience:(p.experience||[]).map(e=>({...emptyExp(),...e})),
         education:(p.education||[]).map(e=>({...emptyEdu(),...e})),
-        skills:p.skills||"",
+        skills:Array.isArray(p.skills)?p.skills.join(", "):(p.skills||""),
         certifications:(p.certifications||[]).map(e=>({...emptyCert(),...e})),
         achievements:(p.achievements||[]).map(e=>({...emptyAch(),...e})),
         projects:(p.projects||[]).map(e=>({...emptyProj(),...e})),
@@ -279,11 +429,12 @@ export default function ResumePro() {
     const failed=ats.tips.map(c=>c.label).join(", ");
     const resume=`Name:${data.name}, Title:${data.title}\nSummary:${data.summary}\nExp:${data.experience.map(e=>`${e.role} at ${e.company}: ${e.bullets.filter(b=>b).join("; ")}`).join(" | ")}\nSkills:${data.skills}\nFailed checks:${failed||"none"}`;
     try {
-      const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,system:'You are an expert resume coach. Return ONLY a JSON array: [{section:"Summary"|"Skills"|"Experience"|"Certifications"|"Personal",issue:"short description",suggestion:"exact ready-to-use text"}]. Be specific to their role. No markdown.',messages:[{role:"user",content:resume}]})});
-      const d=await resp.json();
-      const raw=d.content?.map(b=>b.text||"").join("")||"";
+      const raw = await groqFetch(
+        'You are an expert resume coach. Return ONLY a JSON array (no markdown): [{section:"Summary"|"Skills"|"Experience"|"Certifications"|"Personal",issue:"short description",suggestion:"exact ready-to-use text"}]. Be specific to their role.',
+        resume
+      );
       setAiSuggestions(JSON.parse(raw.replace(/```json|```/g,"").trim()));
-    } catch { setAiError("Could not generate suggestions. Fill in some content first."); }
+    } catch(e) { setAiError("Could not generate suggestions. Fill in some content first."); }
     setAiLoading(false);
   };
 
@@ -304,16 +455,10 @@ export default function ResumePro() {
       ...data.experience.map((e,i)=>"["+i+"] "+e.role+" at "+e.company+"\n"+e.bullets.filter(b=>b).map(b=>"  - "+b).join("\n"))
     ].join("\n");
     try {
-      const resp = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:4000,
-          system:"You are an expert resume optimizer. Given a resume and a job description (JD), analyze the match and return ONLY valid JSON (no markdown, no backticks) with this exact shape: {matchScore:<0-100>,titleMatch:<string>,keywords:[<strings>],missingSkills:[<strings>],suggestedSkills:<comma-separated string>,newSummary:<2-3 sentences tailored to JD using candidate background>,newBullets:[{expIndex:<number>,bullets:[<strings>]}],gaps:[<strings>],tips:[<strings>]}. Keep bullets honest, grounded in actual experience.",
-          messages:[{role:"user",content:"JOB DESCRIPTION:\n"+jdText+"\n\nRESUME:\n"+resumeSnap}]
-        })
-      });
-      const d = await resp.json();
-      const raw = d.content?.map(b=>b.text||"").join("")||"";
+      const raw = await groqFetch(
+        "You are an expert resume optimizer. Given a resume and a job description, return ONLY valid JSON (no markdown, no backticks): {matchScore:<0-100>,titleMatch:<string>,keywords:[<strings>],missingSkills:[<strings>],suggestedSkills:<comma-separated string>,newSummary:<2-3 sentences tailored to JD>,newBullets:[{expIndex:<number>,bullets:[<strings>]}],gaps:[<strings>],tips:[<strings>]}",
+        "JOB DESCRIPTION:\n"+jdText+"\n\nRESUME:\n"+resumeSnap
+      );
       setJdResult(JSON.parse(raw.replace(/```json|```/g,"").trim()));
     } catch { setJdError("Could not analyze. Make sure your resume has content and try again."); }
     setJdLoading(false);
@@ -363,7 +508,14 @@ export default function ResumePro() {
         @keyframes pulse{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
         @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
         .fade-in{animation:fadeIn .25s ease forwards}
-        @media(max-width:600px){header{padding:8px 12px!important}.tab-btn{padding:8px 10px!important;font-size:11px!important}}@media print{body *{visibility:hidden}#resume-print,#resume-print *{visibility:visible}#resume-print{position:fixed;top:0;left:0;width:100%;z-index:9999}}
+        @media(max-width:600px){header{padding:8px 12px!important}.tab-btn{padding:8px 10px!important;font-size:11px!important}}
+        @media print{
+          @page{margin:0;size:A4}
+          body,html{background:#fff!important;margin:0!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+          body>*{display:none!important}
+          #resume-print-portal{display:block!important;position:static!important;width:100%!important;margin:0!important;padding:0!important}
+          #resume-print-portal *{visibility:visible!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        }
       `}</style>
 
       {/* ── Header ── */}
@@ -381,7 +533,7 @@ export default function ResumePro() {
           </button>
           <input ref={fileRef} type="file" accept=".pdf,.txt" style={{display:"none"}} onChange={e=>handleImport(e.target.files[0])} />
           {importError&&<span style={{fontSize:11,color:"#ef4444"}}>{importError}</span>}
-          <button onClick={()=>window.print()} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #c9a84c",background:"transparent",color:"#c9a84c",cursor:"pointer",fontSize:12,fontWeight:"bold"}}>🖨 Print / PDF</button>
+          <button onClick={()=>handlePrint()} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #c9a84c",background:"transparent",color:"#c9a84c",cursor:"pointer",fontSize:12,fontWeight:"bold"}}>⬇ Download PDF</button>
         </div>
       </header>
 
@@ -617,7 +769,7 @@ export default function ResumePro() {
         {/* ══════ PREVIEW ══════ */}
         {activeTab==="preview"&&(
           <div style={{flex:1,overflowY:"auto",background:"#303045",padding:"28px 16px"}}>
-            <ResumeDoc data={data} T={T} skills={skills} layout={sectionLayout} enabledSections={enabledSections}/>
+            <ResumeDoc data={data} T={T} skills={skills} layout={sectionLayout} enabledSections={enabledSections} skillStyle={skillStyle} compact={compact}/>
           </div>
         )}
 
@@ -882,7 +1034,7 @@ export default function ResumePro() {
             </div>
             {/* Right: live preview */}
             <div style={{flex:1,overflowY:"auto",background:"#303045",padding:"28px 16px"}}>
-              <ResumeDoc data={data} T={T} skills={skills} layout={sectionLayout} enabledSections={enabledSections}/>
+              <ResumeDoc data={data} T={T} skills={skills} layout={sectionLayout} enabledSections={enabledSections} skillStyle={skillStyle} compact={compact}/>
             </div>
           </div>
         )}
@@ -947,11 +1099,48 @@ export default function ResumePro() {
                 </div>
                 <button onClick={()=>setCustomStyle({})} style={{marginTop:12,width:"100%",padding:7,borderRadius:8,border:"1px dashed #4a4a5a",background:"transparent",color:"#8888a0",cursor:"pointer",fontSize:11}}>↺ Reset to template defaults</button>
               </div>
+
+              {/* Skill Style */}
+              <div style={{padding:"14px 16px",borderBottom:"1px solid #3a3a4a"}}>
+                <div style={{fontSize:10,color:"#9090a8",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>Skills Display Style</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
+                  {[
+                    ["tags",    "🏷 Tags",    "pill badges"],
+                    ["grouped", "📋 Grouped", "category rows"],
+                    ["list",    "• List",     "bullet list"],
+                    ["inline",  "— Inline",   "comma separated"],
+                  ].map(([val,label,sub])=>(
+                    <button key={val} onClick={()=>setSkillStyle(val)}
+                      style={{padding:"8px 6px",borderRadius:8,border:"1px solid",borderColor:skillStyle===val?"#c9a84c":"#3a3a4a",background:skillStyle===val?"#c9a84c11":"transparent",color:skillStyle===val?"#c9a84c":"#9090a8",fontSize:11,cursor:"pointer",transition:"all .15s",textAlign:"left",lineHeight:1.4}}>
+                      <div style={{fontWeight:600}}>{label}</div>
+                      <div style={{fontSize:9,opacity:.7}}>{sub}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* PDF Page fit */}
+              <div style={{padding:"14px 16px"}}>
+                <div style={{fontSize:10,color:"#9090a8",textTransform:"uppercase",letterSpacing:".1em",marginBottom:10}}>PDF Download</div>
+                <button onClick={()=>handlePrint()} style={{width:"100%",padding:"9px 0",borderRadius:8,border:"1px solid #c9a84c",background:"#c9a84c22",color:"#c9a84c",cursor:"pointer",fontSize:12,fontWeight:"bold"}}>⬇ Download PDF</button>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:10,padding:"8px 10px",borderRadius:8,border:"1px solid #3a3a4a",background:"#1e1e2e"}}>
+                  <div>
+                    <div style={{fontSize:12,color:"#e8e4dc",fontWeight:600}}>📄 Compact 1-page mode</div>
+                    <div style={{fontSize:10,color:"#8888a0",marginTop:2}}>Tighter spacing to fit one page</div>
+                  </div>
+                  <div onClick={()=>setCompact(p=>!p)} style={{width:40,height:22,borderRadius:11,background:compact?"#c9a84c":"#3a3a4a",cursor:"pointer",position:"relative",transition:"all .2s",flexShrink:0}}>
+                    <div style={{position:"absolute",top:3,left:compact?20:3,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"all .2s"}}/>
+                  </div>
+                </div>
+                <div style={{fontSize:10,color:"#8888a0",marginTop:8,lineHeight:1.6}}>
+                  Tip: Hide unused sections in the Arrange tab to save space.
+                </div>
+              </div>
             </div>
 
             {/* Live preview */}
             <div style={{flex:1,overflowY:"auto",background:"#303045",padding:"28px 16px"}}>
-              <ResumeDoc data={data} T={T} skills={skills} layout={sectionLayout} enabledSections={enabledSections}/>
+              <ResumeDoc data={data} T={T} skills={skills} layout={sectionLayout} enabledSections={enabledSections} skillStyle={skillStyle} compact={compact}/>
             </div>
           </div>
         )}
@@ -967,28 +1156,28 @@ function FH({children}){
 /* ════════════════════════════════════════════════════════
    RESUME DOCUMENT — renders sections in user-defined layout
 ════════════════════════════════════════════════════════ */
-function ResumeDoc({data,T,skills,layout,enabledSections}){
+function ResumeDoc({data,T,skills,layout,enabledSections,skillStyle="tags",compact=false}){
   const isEmpty=!data.name&&!data.summary&&data.experience.every(e=>!e.company);
   return(
-    <div id="resume-print" style={{maxWidth:700,margin:"0 auto"}}>
+    <div id="resume-print" data-name={data.name||"resume"} style={{maxWidth:700,margin:"0 auto",background:"#fff",fontFamily:"inherit"}}>
       {isEmpty
         ?<div style={{textAlign:"center",padding:"80px 20px",color:"#7878a0"}}><div style={{fontSize:40,marginBottom:12}}>✦</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:"#8888a0"}}>Fill in the Edit tab to see your live preview</div></div>
-        :<ResumeShell data={data} T={T} skills={skills} layout={layout} enabledSections={enabledSections}/>
+        :<ResumeShell data={data} T={T} skills={skills} layout={layout} enabledSections={enabledSections} skillStyle={skillStyle} compact={compact}/>
       }
     </div>
   );
 }
 
-function ResumeShell({data,T,skills,layout,enabledSections}){
+function ResumeShell({data,T,skills,layout,enabledSections,skillStyle="tags",compact=false}){
   const renderSection=(secId)=>{
     if(!enabledSections.includes(secId)&&secId!=="summary"&&secId!=="experience"&&secId!=="education"&&secId!=="skills") return null;
-    if(secId==="summary")        return <SummarySection key={secId} data={data} T={T}/>;
-    if(secId==="experience")     return <ExpSection key={secId} data={data} T={T}/>;
-    if(secId==="education")      return <EduSection key={secId} data={data} T={T}/>;
-    if(secId==="skills")         return <SkillSection key={secId} skills={skills} T={T}/>;
-    if(secId==="certifications") return <CertSection key={secId} data={data} T={T}/>;
-    if(secId==="achievements")   return <AchSection key={secId} data={data} T={T}/>;
-    if(secId==="projects")       return <ProjSection key={secId} data={data} T={T}/>;
+    if(secId==="summary")        return <SummarySection key={secId} data={data} T={T} compact={compact}/>;
+    if(secId==="experience")     return <ExpSection key={secId} data={data} T={T} compact={compact}/>;
+    if(secId==="education")      return <EduSection key={secId} data={data} T={T} compact={compact}/>;
+    if(secId==="skills")         return <SkillSection key={secId} skills={skills} T={T} skillStyle={skillStyle} compact={compact}/>;
+    if(secId==="certifications") return <CertSection key={secId} data={data} T={T} compact={compact}/>;
+    if(secId==="achievements")   return <AchSection key={secId} data={data} T={T} compact={compact}/>;
+    if(secId==="projects")       return <ProjSection key={secId} data={data} T={T} compact={compact}/>;
     if(secId==="languages")      return <LangSection key={secId} data={data} T={T}/>;
     if(secId==="volunteer")      return <VolSection key={secId} data={data} T={T}/>;
     if(secId.startsWith("custom_")){
@@ -1009,7 +1198,7 @@ function ResumeShell({data,T,skills,layout,enabledSections}){
           <div style={{fontSize:11,lineHeight:1.9,color:T.header==="#ffffff"?"#555":"#bbb"}}>
             {data.email&&<div>✉ {data.email}</div>}{data.phone&&<div>☎ {data.phone}</div>}{data.location&&<div>◎ {data.location}</div>}{data.linkedin&&<div>in {data.linkedin}</div>}{data.website&&<div>🔗 {data.website}</div>}
           </div>
-          {skills.length>0&&<><div style={{marginTop:24,fontSize:10,fontWeight:"bold",letterSpacing:".1em",textTransform:"uppercase",color:T.accent,marginBottom:10}}>Skills</div>{skills.map((s,i)=><div key={i} style={{fontSize:11,marginBottom:5,color:T.header==="#ffffff"?"#444":"#ddd"}}>• {s}</div>)}</>}
+          {skills.length>0&&<><div style={{marginTop:24,fontSize:10,fontWeight:"bold",letterSpacing:".1em",textTransform:"uppercase",color:T.accent,marginBottom:10}}>Skills</div>{skills.map((s,i)=><div key={i} style={{fontSize:11,marginBottom:4,color:T.header==="#ffffff"?"#444":"#ddd"}}>• {s}</div>)}</>}
         </div>
         <div style={{flex:1,padding:"32px 30px",background:T.bg}}>
           {layout.map((row,ri)=>(
@@ -1030,7 +1219,7 @@ function ResumeShell({data,T,skills,layout,enabledSections}){
       <div style={{background:"#fff",fontFamily:T.bodyFont,color:T.text}}>
         {/* Header block */}
         {T.layout==="minimal"?(
-          <div style={{padding:"48px 52px 24px",borderBottom:`2px solid ${T.accent}`}}>
+          <div style={{padding:compact?"18px 36px 14px":"48px 52px 24px",borderBottom:`2px solid ${T.accent}`}}>
             <div style={{fontFamily:T.headerFont,fontSize:34,fontWeight:700,marginBottom:4}}>{data.name||"Your Name"}</div>
             <div style={{fontSize:13,color:"#888",letterSpacing:".08em",marginBottom:14}}>{data.title}</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:"4px 20px",fontSize:12,color:"#aaa"}}>
@@ -1038,20 +1227,20 @@ function ResumeShell({data,T,skills,layout,enabledSections}){
             </div>
           </div>
         ):T.layout==="editorial"?(
-          <div style={{background:T.header,borderBottom:`4px solid ${T.accent}`,padding:"40px 48px 28px"}}>
+          <div style={{background:T.header,borderBottom:`4px solid ${T.accent}`,padding:compact?"16px 36px 14px":"40px 48px 28px"}}>
             <div style={{fontSize:10,letterSpacing:".3em",textTransform:"uppercase",color:T.accent,marginBottom:8}}>Curriculum Vitae</div>
             <div style={{fontFamily:T.headerFont,fontSize:38,fontWeight:700,marginBottom:6,color:T.text,lineHeight:1.1}}>{data.name||"Your Name"}</div>
             <div style={{fontSize:14,color:"#888",fontStyle:"italic",marginBottom:18}}>{data.title}</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:"4px 22px",fontSize:12,color:"#999"}}>{data.email&&<span>{data.email}</span>}{data.phone&&<span>{data.phone}</span>}{data.location&&<span>{data.location}</span>}{data.linkedin&&<span>{data.linkedin}</span>}{data.website&&<span>{data.website}</span>}</div>
           </div>
         ):T.layout==="tech"?(
-          <div style={{background:T.header,borderBottom:`1px solid ${T.border}`,padding:"28px 36px"}}>
+          <div style={{background:T.header,borderBottom:`1px solid ${T.border}`,padding:compact?"12px 28px":"28px 36px"}}>
             <div style={{color:T.accent,fontSize:12,marginBottom:4}}>{"// "}{data.title||"professional_title"}</div>
             <div style={{fontFamily:T.headerFont,fontSize:28,fontWeight:600,marginBottom:12}}>{data.name||"Your Name"}</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:"4px 18px",fontSize:11,color:"#888"}}>{data.email&&<span>{data.email}</span>}{data.phone&&<span>{data.phone}</span>}{data.location&&<span>{data.location}</span>}{data.linkedin&&<span>{data.linkedin}</span>}{data.website&&<span>{data.website}</span>}</div>
           </div>
         ):(
-          <div style={{background:T.header,color:headerTextColor,padding:"38px 44px 28px"}}>
+          <div style={{background:T.header,color:headerTextColor,padding:compact?"14px 28px 12px":"38px 44px 28px"}}>
             <div style={{fontFamily:T.headerFont,fontSize:30,fontWeight:700,marginBottom:4}}>{data.name||"Your Name"}</div>
             <div style={{fontSize:13,color:T.accent,letterSpacing:".13em",textTransform:"uppercase",marginBottom:18}}>{data.title||"Professional Title"}</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:"5px 20px",fontSize:12,color:contactColor}}>{data.email&&<span>✉ {data.email}</span>}{data.phone&&<span>☎ {data.phone}</span>}{data.location&&<span>◎ {data.location}</span>}{data.linkedin&&<span>in {data.linkedin}</span>}{data.website&&<span>🔗 {data.website}</span>}</div>
@@ -1059,7 +1248,7 @@ function ResumeShell({data,T,skills,layout,enabledSections}){
         )}
 
         {/* Body — section rows */}
-        <div style={{padding:T.layout==="minimal"?"28px 52px 48px":T.layout==="editorial"?"34px 48px":"28px 44px",background:T.bg}}>
+        <div style={{padding:compact?(T.layout==="minimal"?"12px 36px 20px":"12px 28px 20px"):(T.layout==="minimal"?"28px 52px 48px":T.layout==="editorial"?"34px 48px":"28px 44px"),background:T.bg}}>
           {layout.map((row,ri)=>(
             <div key={ri} style={{display:"flex",gap:24}}>
               {row.map((secId,ci)=>(
@@ -1080,10 +1269,10 @@ function ResumeShell({data,T,skills,layout,enabledSections}){
 }
 
 /* ── Section renderers ── */
-function RSection({title,T,children}){
+function RSection({title,T,children,compact=false}){
   return(
-    <div style={{marginBottom:22}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+    <div style={{marginBottom:compact?10:22}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:compact?5:10}}>
         <div style={{fontSize:10,fontWeight:700,letterSpacing:".14em",textTransform:"uppercase",color:T.accent,whiteSpace:"nowrap"}}>{title}</div>
         <div style={{flex:1,height:1,background:T.border||"#e0e0e0"}}/>
       </div>
@@ -1092,38 +1281,38 @@ function RSection({title,T,children}){
   );
 }
 
-function SummarySection({data,T}){
+function SummarySection({data,T,compact=false}){
   if(!data.summary.trim()) return null;
-  return <RSection title="Summary" T={T}><p style={{margin:0,fontSize:13.5,lineHeight:1.8,color:"#8888a0"}}>{data.summary}</p></RSection>;
+  return <RSection title="Summary" T={T} compact={compact}><p style={{margin:0,fontSize:compact?12:13.5,lineHeight:compact?1.5:1.8,color:"#8888a0"}}>{data.summary}</p></RSection>;
 }
 
-function ExpSection({data,T}){
+function ExpSection({data,T,compact=false}){
   const exps=data.experience.filter(e=>e.company||e.role);
   if(!exps.length) return null;
   return(
-    <RSection title="Experience" T={T}>
+    <RSection title="Experience" T={T} compact={compact}>
       {exps.map((exp,i)=>(
-        <div key={exp.id} style={{marginBottom:i<exps.length-1?18:0}}>
+        <div key={exp.id} style={{marginBottom:i<exps.length-1?(compact?8:18):0}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:2}}>
-            <div style={{fontWeight:700,fontSize:14}}>{exp.role}</div>
+            <div style={{fontWeight:700,fontSize:compact?12:14}}>{exp.role}</div>
             <div style={{fontSize:11,color:"#999",whiteSpace:"nowrap"}}>{exp.period}</div>
           </div>
-          <div style={{fontSize:12.5,color:T.accent,marginBottom:6,fontStyle:"italic"}}>{exp.company}</div>
-          <ul style={{margin:0,paddingLeft:16}}>{exp.bullets.filter(b=>b.trim()).map((b,j)=><li key={j} style={{fontSize:13,lineHeight:1.7,color:"#9090a8",marginBottom:2}}>{b}</li>)}</ul>
+          <div style={{fontSize:compact?11:12.5,color:T.accent,marginBottom:compact?3:6,fontStyle:"italic"}}>{exp.company}</div>
+          <ul style={{margin:0,paddingLeft:14}}>{exp.bullets.filter(b=>b.trim()).map((b,j)=><li key={j} style={{fontSize:compact?11:13,lineHeight:compact?1.5:1.7,color:"#9090a8",marginBottom:compact?1:2}}>{b}</li>)}</ul>
         </div>
       ))}
     </RSection>
   );
 }
 
-function EduSection({data,T}){
+function EduSection({data,T,compact=false}){
   const edus=data.education.filter(e=>e.institution||e.degree);
   if(!edus.length) return null;
   return(
-    <RSection title="Education" T={T}>
+    <RSection title="Education" T={T} compact={compact}>
       {edus.map(edu=>(
-        <div key={edu.id} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8}}>
-          <div><div style={{fontWeight:700,fontSize:14}}>{edu.degree}</div><div style={{fontSize:13,color:"#888",fontStyle:"italic"}}>{edu.institution}</div></div>
+        <div key={edu.id} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:compact?4:8}}>
+          <div><div style={{fontWeight:700,fontSize:compact?12:14}}>{edu.degree}</div><div style={{fontSize:compact?11:13,color:"#888",fontStyle:"italic"}}>{edu.institution}</div></div>
           <div style={{fontSize:11,color:"#999"}}>{edu.year}</div>
         </div>
       ))}
@@ -1131,22 +1320,73 @@ function EduSection({data,T}){
   );
 }
 
-function SkillSection({skills,T}){
+function SkillSection({skills,T,skillStyle="tags",compact=false}){
   if(!skills.length) return null;
+
+  // Try to detect grouped format: "Category: skill1, skill2"
+  const grouped = skills.reduce((acc,s)=>{
+    const m = s.match(/^([^:]{2,30}):\s*(.+)$/);
+    if(m){ acc.push({cat:m[1].trim(), items:m[2].split(/[,·]/).map(x=>x.trim()).filter(Boolean)}); }
+    else { acc.push({cat:null, items:[s]}); }
+    return acc;
+  },[]);
+  const hasGroups = grouped.some(g=>g.cat);
+
+  if(skillStyle==="grouped"){
+    return(
+      <RSection title="Technical Skills" T={T} compact={compact}>
+        {hasGroups
+          ? grouped.map((g,i)=>(
+              <div key={i} style={{display:"flex",gap:8,marginBottom:compact?3:6,fontSize:12,lineHeight:compact?1.4:1.6}}>
+                {g.cat&&<div style={{minWidth:100,fontWeight:700,color:T.accent,flexShrink:0,fontSize:11}}>{g.cat}</div>}
+                <div style={{color:T.text,flexWrap:"wrap"}}>{g.items.join(" · ")}</div>
+              </div>
+            ))
+          : <div style={{columns:2,gap:16}}>
+              {skills.map((s,i)=><div key={i} style={{fontSize:12,marginBottom:4,color:T.text}}>• {s}</div>)}
+            </div>
+        }
+      </RSection>
+    );
+  }
+
+  if(skillStyle==="list"){
+    return(
+      <RSection title="Skills" T={T} compact={compact}>
+        <div style={{columns:2,gap:16,columnFill:"auto"}}>
+          {skills.map((s,i)=><div key={i} style={{fontSize:12,marginBottom:5,color:T.text,breakInside:"avoid"}}>• {s}</div>)}
+        </div>
+      </RSection>
+    );
+  }
+
+  if(skillStyle==="inline"){
+    return(
+      <RSection title="Skills" T={T} compact={compact}>
+        <div style={{fontSize:12,color:T.text,lineHeight:1.8}}>
+          {skills.join(" · ")}
+        </div>
+      </RSection>
+    );
+  }
+
+  // Default: tags
   return(
     <RSection title="Skills" T={T}>
-      <div style={{display:"flex",flexWrap:"wrap",gap:7}}>{skills.map((s,i)=><span key={i} style={{fontSize:12,padding:"4px 13px",background:T.skillBg,border:`1px solid ${T.border||"#ddd"}`,borderRadius:20,color:T.text}}>{s}</span>)}</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+        {skills.map((s,i)=><span key={i} style={{fontSize:12,padding:"4px 13px",background:T.skillBg,border:`1px solid ${T.border||"#ddd"}`,borderRadius:20,color:T.text}}>{s}</span>)}
+      </div>
     </RSection>
   );
 }
 
-function CertSection({data,T}){
+function CertSection({data,T,compact=false}){
   const certs=data.certifications.filter(c=>c.name);
   if(!certs.length) return null;
   return(
-    <RSection title="Certifications" T={T}>
+    <RSection title="Certifications" T={T} compact={compact}>
       {certs.map(c=>(
-        <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:7}}>
+        <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:compact?3:7}}>
           <div><div style={{fontWeight:700,fontSize:13}}>{c.name}</div>{c.issuer&&<div style={{fontSize:12,color:"#888",fontStyle:"italic"}}>{c.issuer}</div>}</div>
           {c.year&&<div style={{fontSize:11,color:"#999",whiteSpace:"nowrap"}}>{c.year}</div>}
         </div>
@@ -1155,21 +1395,21 @@ function CertSection({data,T}){
   );
 }
 
-function AchSection({data,T}){
+function AchSection({data,T,compact=false}){
   const achs=data.achievements.filter(a=>a.text);
   if(!achs.length) return null;
   return(
-    <RSection title="Achievements" T={T}>
+    <RSection title="Achievements" T={T} compact={compact}>
       <ul style={{margin:0,paddingLeft:16}}>{achs.map(a=><li key={a.id} style={{fontSize:13,lineHeight:1.7,color:"#9090a8",marginBottom:4}}>{a.text}</li>)}</ul>
     </RSection>
   );
 }
 
-function ProjSection({data,T}){
+function ProjSection({data,T,compact=false}){
   const projs=data.projects.filter(p=>p.name);
   if(!projs.length) return null;
   return(
-    <RSection title="Projects" T={T}>
+    <RSection title="Projects" T={T} compact={compact}>
       {projs.map(p=>(
         <div key={p.id} style={{marginBottom:10}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
