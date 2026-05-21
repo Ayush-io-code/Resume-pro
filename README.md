@@ -109,11 +109,3 @@ Resume-Pro/
 Pull requests are welcome! For major changes, please open an issue first to discuss what you'd like to change.
 
 ---
-
-## License
-
-[MIT](LICENSE)
-
----
-
-<p align="center">Made with ❤️ by <a href="https://github.com/Ayush-io-code">Ayush</a></p>
